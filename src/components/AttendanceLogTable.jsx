@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { MapPin, Search, Calendar, User, ExternalLink } from 'lucide-react';
-import { getGoogleMapsUrl, formatDateDDMMYYYY } from '../utils/geoUtils';
+import { MapPin, Search, Calendar, User, ExternalLink, Camera, X, Clock } from 'lucide-react';
+import { getGoogleMapsUrl, formatDateDDMMYYYY, formatWorkDurationHHMM } from '../utils/geoUtils';
 
 export default function AttendanceLogTable({ records = [], employees = [], title = "Attendance Logs" }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState('ALL'); // ALL | Remote | Office
   const [filterStatus, setFilterStatus] = useState('ALL'); // ALL | ON_TIME | LATE
+  const [activeSelfieRecord, setActiveSelfieRecord] = useState(null); // Record selected to view selfie
 
   // Filter logic
   const filteredRecords = records.filter(record => {
@@ -103,9 +104,11 @@ export default function AttendanceLogTable({ records = [], employees = [], title
           <thead>
             <tr>
               <th>Employee Name</th>
+              <th>Selfie Check-in</th>
               <th>Work Mode</th>
               <th>Clock In Time</th>
               <th>Clock Out Time</th>
+              <th>Work Duration (HH:MM)</th>
               <th>Status</th>
               <th>Location Address</th>
             </tr>
@@ -115,11 +118,11 @@ export default function AttendanceLogTable({ records = [], employees = [], title
               filteredRecords.map(record => {
                 const emp = employees.find(e => e.id === record.employeeId) || {
                   name: record.employeeName,
-                  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
                   role: 'Employee'
                 };
 
                 const formattedDate = formatDateDDMMYYYY(record.date);
+                const workDurationStr = formatWorkDurationHHMM(record.clockInIso, record.clockOutIso);
 
                 return (
                   <tr key={record.id}>
@@ -127,11 +130,22 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                     {/* Employee info */}
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <img
-                          src={emp.avatar}
-                          alt={emp.name}
-                          style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }}
-                        />
+                        <div
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '50%',
+                            background: 'var(--primary)',
+                            color: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 800,
+                            fontSize: '0.95rem'
+                          }}
+                        >
+                          {(emp.name || 'E').charAt(0).toUpperCase()}
+                        </div>
                         <div>
                           <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>
                             {emp.name}
@@ -141,6 +155,38 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                           </div>
                         </div>
                       </div>
+                    </td>
+
+                    {/* Selfie Preview Column */}
+                    <td>
+                      {record.capturedPhoto ? (
+                        <div
+                          onClick={() => setActiveSelfieRecord(record)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            cursor: 'pointer',
+                            background: 'var(--bg-input)',
+                            border: '1px solid var(--border-color)',
+                            padding: '0.3rem 0.6rem',
+                            borderRadius: 'var(--radius-sm)',
+                            transition: 'all 0.15s ease'
+                          }}
+                          title="Click to view full captured selfie"
+                        >
+                          <img
+                            src={record.capturedPhoto}
+                            alt="Check-in selfie"
+                            style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--primary)' }}
+                          />
+                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                            <Camera size={12} /> View
+                          </span>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No Selfie</span>
+                      )}
                     </td>
 
                     {/* Work Mode */}
@@ -176,6 +222,14 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                           ● Shift Active
                         </span>
                       )}
+                    </td>
+
+                    {/* Work Duration (HH:MM) */}
+                    <td>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary)', padding: '0.3rem 0.6rem', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.88rem' }}>
+                        <Clock size={14} />
+                        <span>{workDurationStr}</span>
+                      </div>
                     </td>
 
                     {/* Lateness Status */}
@@ -220,7 +274,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
               })
             ) : (
               <tr>
-                <td colSpan="6" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
                   No attendance records found matching filters.
                 </td>
               </tr>
@@ -228,6 +282,75 @@ export default function AttendanceLogTable({ records = [], employees = [], title
           </tbody>
         </table>
       </div>
+
+      {/* View Captured Selfie Inspection Modal */}
+      {activeSelfieRecord && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '1rem' }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '460px', padding: '1.75rem', borderRadius: 'var(--radius-lg)' }}>
+            
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Camera size={20} style={{ color: 'var(--primary)' }} />
+                  <span>Check-In Selfie Audit</span>
+                </h3>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  {activeSelfieRecord.employeeName} • {formatDateDDMMYYYY(activeSelfieRecord.date)} at {activeSelfieRecord.clockInTime}
+                </p>
+              </div>
+              <button onClick={() => setActiveSelfieRecord(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* High-res Captured Selfie */}
+            <div style={{ width: '100%', height: '320px', background: '#000000', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '2px solid var(--primary)', marginBottom: '1.25rem' }}>
+              <img
+                src={activeSelfieRecord.capturedPhoto}
+                alt="Captured Check-in Selfie"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            </div>
+
+            {/* Audit Details */}
+            <div style={{ background: 'var(--bg-input)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.82rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Work Duration:</span>
+                <span style={{ fontWeight: 800, color: 'var(--primary)', fontFamily: 'var(--font-mono)' }}>
+                  {formatWorkDurationHHMM(activeSelfieRecord.clockInIso, activeSelfieRecord.clockOutIso)}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Lateness Status:</span>
+                <span className={`status-badge ${activeSelfieRecord.latenessStatus === 'LATE' ? 'late' : 'online'}`}>
+                  {activeSelfieRecord.latenessStatus === 'LATE' ? 'LATE' : 'ON TIME'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Work Mode:</span>
+                <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{activeSelfieRecord.workMode}</span>
+              </div>
+              <div style={{ color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                Captured Location:
+                <div style={{ fontWeight: 700, color: 'var(--text-main)', marginTop: '2px' }}>
+                  {activeSelfieRecord.locationName}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActiveSelfieRecord(null)}
+              className="btn-primary"
+              style={{ width: '100%', marginTop: '1.25rem', justifyContent: 'center' }}
+            >
+              Close Verification
+            </button>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

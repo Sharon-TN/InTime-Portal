@@ -111,6 +111,25 @@ export const formatTime12Hour = (timeStr) => {
   return `${strHours}:${minutes} ${ampm}`;
 };
 
+// Calculate and format shift work duration into HH:MM (Hours:Minutes) format
+export const formatWorkDurationHHMM = (clockInIso, clockOutIso) => {
+  if (!clockInIso) return '00:00';
+  const start = new Date(clockInIso);
+  const end = clockOutIso ? new Date(clockOutIso) : new Date();
+
+  const diffMs = end - start;
+  if (diffMs <= 0) return '00:00';
+
+  const totalMinutes = Math.floor(diffMs / (1000 * 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  const strHours = String(hours).padStart(2, '0');
+  const strMins = String(minutes).padStart(2, '0');
+
+  return `${strHours}:${strMins} hrs`;
+};
+
 // Evaluate whether clock-in time is ON_TIME or LATE
 export const checkLateness = (clockInDate, shiftStartTimeStr = "09:00", graceMinutes = 15) => {
   let targetHour = 9;

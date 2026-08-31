@@ -1,139 +1,303 @@
 import React, { useState } from 'react';
 import { useAttendance } from '../context/AttendanceContext';
-import { Users, Clock, AlertTriangle, ShieldCheck, MapPin, Settings, Trash2 } from 'lucide-react';
-import AttendanceLogTable from './AttendanceLogTable';
+import LiveClock from './LiveClock';
 import LiveMap from './LiveMap';
+import AttendanceLogTable from './AttendanceLogTable';
+import ShiftSettingsModal from './ShiftSettingsModal';
 import ShiftPolicyModal from './ShiftPolicyModal';
+import PayslipsModule from './PayslipsModule';
+import DocumentsModule from './DocumentsModule';
+import LeaveManagementModule from './LeaveManagementModule';
+import WorkDiaryReviewModule from './WorkDiaryReviewModule';
+import EmployeeAnalyticsModule from './EmployeeAnalyticsModule';
 import { formatTime12Hour } from '../utils/geoUtils';
+import {
+  Users, CheckCircle, Clock, AlertCircle, Settings, Trash2, Sliders, MapPin,
+  BookOpen, Calendar, FileText, Folder, Radio, ShieldCheck, BarChart3
+} from 'lucide-react';
 
 export default function AdminDashboard() {
-  const { records, employees, shiftPolicy, clearAllData } = useAttendance();
-  const [showPolicyModal, setShowPolicyModal] = useState(false);
+  const {
+    employees,
+    records,
+    shiftPolicy,
+    setShiftPolicy,
+    clearAllData
+  } = useAttendance();
 
-  // Compute metrics
-  const activeRecords = records.filter(r => r.status === 'CLOCK_IN');
-  const lateCount = records.filter(r => r.latenessStatus === 'LATE').length;
-  const totalEmployeesCount = employees.length;
+  const [activeTab, setActiveTab] = useState('WORKFORCE'); // 'WORKFORCE' | 'ANALYTICS' | 'LEAVES' | 'PAYSLIPS' | 'DOCUMENTS' | 'DIARIES'
+  const [showShiftModal, setShowShiftModal] = useState(false);
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  // Metrics
+  const totalEmployees = employees.length;
+  const activeClockedIn = records.filter(r => r.status === 'CLOCK_IN').length;
+  
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayRecords = records.filter(r => r.date === todayStr);
+  const lateTodayCount = todayRecords.filter(r => r.latenessStatus === 'LATE').length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
       
-      {/* Top Bar with Title & Config Actions */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-        <div>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)' }}>
-            <ShieldCheck size={26} style={{ color: 'var(--accent-purple)' }} />
-            <span>Admin Management Dashboard</span>
-          </h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
-            Workforce attendance tracking & live location intelligence
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button
-            className="btn-secondary"
-            onClick={() => setShowPolicyModal(true)}
-          >
-            <Settings size={16} />
-            <span>Configure Shift Policy</span>
-          </button>
-
-          {records.length > 0 && (
-            <button
-              className="btn-danger"
-              onClick={() => {
-                if (window.confirm("Are you sure you want to clear all attendance logs and employee accounts?")) {
-                  clearAllData();
-                }
-              }}
-              style={{ padding: '0.55rem 0.85rem', fontSize: '0.8rem' }}
-              title="Clear all stored logs and reset roster"
-            >
-              <Trash2 size={15} />
-              <span>Clear All System Logs</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Metric Cards Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
-        
-        {/* Metric 1: Total Employees */}
-        <div className="glass-card metric-card">
-          <div className="metric-icon purple">
-            <Users size={22} />
-          </div>
+      {/* Admin Welcome & Header Navigation */}
+      <div className="glass-card" style={{ padding: '1.75rem 2rem', borderRadius: 'var(--radius-lg)' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1.25rem', marginBottom: '1.5rem' }}>
+          
           <div>
-            <div className="metric-value">{totalEmployeesCount}</div>
-            <div className="metric-label">Registered Workforce</div>
-          </div>
-        </div>
-
-        {/* Metric 2: Currently Active/Clocked-In */}
-        <div className="glass-card metric-card">
-          <div className="metric-icon emerald">
-            <Clock size={22} />
-          </div>
-          <div>
-            <div className="metric-value">{activeRecords.length}</div>
-            <div className="metric-label">Currently Clocked In</div>
-          </div>
-        </div>
-
-        {/* Metric 3: Late Arrivals */}
-        <div className="glass-card metric-card">
-          <div className="metric-icon rose">
-            <AlertTriangle size={22} />
-          </div>
-          <div>
-            <div className="metric-value">{lateCount}</div>
-            <div className="metric-label">Late Arrivals Today</div>
-          </div>
-        </div>
-
-        {/* Metric 4: Shift Time Policy (12-Hour AM/PM Format) */}
-        <div className="glass-card metric-card">
-          <div className="metric-icon cyan">
-            <MapPin size={22} />
-          </div>
-          <div>
-            <div className="metric-value" style={{ fontSize: '1.2rem', fontFamily: 'var(--font-mono)' }}>
-              {formatTime12Hour(shiftPolicy.startTime)}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
+                Executive HR & Operations Portal
+              </h2>
+              <span className="status-badge status-in" style={{ background: 'rgba(59,130,246,0.12)', color: 'var(--primary)' }}>
+                ADMIN CONTROL
+              </span>
             </div>
-            <div className="metric-label">Shift Start (+{shiftPolicy.graceMinutes}m Grace)</div>
-          </div>
-        </div>
-      </div>
-
-      {/* 1. All Employees Attendance Log Table */}
-      <AttendanceLogTable
-        records={records}
-        employees={employees}
-        title="Company-Wide Workforce Attendance Logs"
-      />
-
-      {/* 2. Interactive Live Map Overview */}
-      <div className="glass-card" style={{ padding: '1.5rem', borderRadius: 'var(--radius-lg)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <div>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)' }}>Live Workforce Geolocation Map</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-              Real-time GPS tracking pins across India
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: '0.2rem' }}>
+              Real-time Workforce Tracking, Employee Analytics, Payslip Disbursal & Work Diary Audits
             </p>
           </div>
-          <span style={{ fontSize: '0.8rem', color: 'var(--accent-emerald)', fontWeight: 600 }}>
-            ● {activeRecords.length} Active GPS Pins
-          </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              className="btn-secondary"
+              onClick={() => setShowPolicyModal(true)}
+              style={{ fontSize: '0.85rem' }}
+            >
+              <Sliders size={16} />
+              <span>Shift Policy Config</span>
+            </button>
+
+            <button
+              className="btn-danger"
+              onClick={() => setShowClearConfirm(true)}
+              style={{ fontSize: '0.85rem' }}
+            >
+              <Trash2 size={16} />
+              <span>Clear Logs</span>
+            </button>
+
+            <LiveClock />
+          </div>
+
         </div>
 
-        <LiveMap activeRecords={activeRecords} employees={employees} />
+        {/* Navigation Tabs */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+          
+          <button
+            className={`btn-secondary ${activeTab === 'WORKFORCE' ? 'active-tab' : ''}`}
+            onClick={() => setActiveTab('WORKFORCE')}
+            style={{
+              padding: '0.6rem 1.1rem',
+              fontSize: '0.85rem',
+              background: activeTab === 'WORKFORCE' ? 'var(--primary)' : 'transparent',
+              color: activeTab === 'WORKFORCE' ? '#FFFFFF' : 'var(--text-main)',
+              borderColor: activeTab === 'WORKFORCE' ? 'var(--primary)' : 'var(--border-color)'
+            }}
+          >
+            <Users size={16} />
+            <span>Workforce Logs & Map</span>
+          </button>
+
+          {/* NEW TAB: Employee Analytics Dashboard */}
+          <button
+            className={`btn-secondary ${activeTab === 'ANALYTICS' ? 'active-tab' : ''}`}
+            onClick={() => setActiveTab('ANALYTICS')}
+            style={{
+              padding: '0.6rem 1.1rem',
+              fontSize: '0.85rem',
+              background: activeTab === 'ANALYTICS' ? 'var(--accent-purple)' : 'transparent',
+              color: activeTab === 'ANALYTICS' ? '#FFFFFF' : 'var(--text-main)',
+              borderColor: activeTab === 'ANALYTICS' ? 'var(--accent-purple)' : 'var(--border-color)'
+            }}
+          >
+            <BarChart3 size={16} />
+            <span>Employee Analytics Dashboard</span>
+          </button>
+
+          <button
+            className={`btn-secondary ${activeTab === 'LEAVES' ? 'active-tab' : ''}`}
+            onClick={() => setActiveTab('LEAVES')}
+            style={{
+              padding: '0.6rem 1.1rem',
+              fontSize: '0.85rem',
+              background: activeTab === 'LEAVES' ? 'var(--accent-amber)' : 'transparent',
+              color: activeTab === 'LEAVES' ? '#FFFFFF' : 'var(--text-main)',
+              borderColor: activeTab === 'LEAVES' ? 'var(--accent-amber)' : 'var(--border-color)'
+            }}
+          >
+            <Calendar size={16} />
+            <span>Leave Requests & Calendar</span>
+          </button>
+
+          <button
+            className={`btn-secondary ${activeTab === 'PAYSLIPS' ? 'active-tab' : ''}`}
+            onClick={() => setActiveTab('PAYSLIPS')}
+            style={{
+              padding: '0.6rem 1.1rem',
+              fontSize: '0.85rem',
+              background: activeTab === 'PAYSLIPS' ? 'var(--accent-emerald)' : 'transparent',
+              color: activeTab === 'PAYSLIPS' ? '#FFFFFF' : 'var(--text-main)',
+              borderColor: activeTab === 'PAYSLIPS' ? 'var(--accent-emerald)' : 'var(--border-color)'
+            }}
+          >
+            <FileText size={16} />
+            <span>Issue Payslips</span>
+          </button>
+
+          <button
+            className={`btn-secondary ${activeTab === 'DOCUMENTS' ? 'active-tab' : ''}`}
+            onClick={() => setActiveTab('DOCUMENTS')}
+            style={{
+              padding: '0.6rem 1.1rem',
+              fontSize: '0.85rem',
+              background: activeTab === 'DOCUMENTS' ? 'var(--accent-purple)' : 'transparent',
+              color: activeTab === 'DOCUMENTS' ? '#FFFFFF' : 'var(--text-main)',
+              borderColor: activeTab === 'DOCUMENTS' ? 'var(--accent-purple)' : 'var(--border-color)'
+            }}
+          >
+            <Folder size={16} />
+            <span>Document Audit Vault</span>
+          </button>
+
+          <button
+            className={`btn-secondary ${activeTab === 'DIARIES' ? 'active-tab' : ''}`}
+            onClick={() => setActiveTab('DIARIES')}
+            style={{
+              padding: '0.6rem 1.1rem',
+              fontSize: '0.85rem',
+              background: activeTab === 'DIARIES' ? 'var(--accent-cyan)' : 'transparent',
+              color: activeTab === 'DIARIES' ? '#FFFFFF' : 'var(--text-main)',
+              borderColor: activeTab === 'DIARIES' ? 'var(--accent-cyan)' : 'var(--border-color)'
+            }}
+          >
+            <BookOpen size={16} />
+            <span>Work Diary Reviews</span>
+          </button>
+
+        </div>
       </div>
 
-      {/* Shift Policy Modal */}
+      {/* Top Overview Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
+        
+        <div className="glass-card" style={{ padding: '1.25rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ padding: '0.85rem', borderRadius: 'var(--radius-sm)', background: 'rgba(59, 130, 246, 0.12)', color: 'var(--primary)' }}>
+            <Users size={24} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Staff</div>
+            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)' }}>{totalEmployees}</div>
+          </div>
+        </div>
+
+        <div className="glass-card" style={{ padding: '1.25rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ padding: '0.85rem', borderRadius: 'var(--radius-sm)', background: 'rgba(16, 185, 129, 0.12)', color: 'var(--accent-emerald)' }}>
+            <CheckCircle size={24} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Active On Duty</div>
+            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)' }}>{activeClockedIn}</div>
+          </div>
+        </div>
+
+        <div className="glass-card" style={{ padding: '1.25rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ padding: '0.85rem', borderRadius: 'var(--radius-sm)', background: 'rgba(244, 63, 94, 0.12)', color: 'var(--accent-rose)' }}>
+            <AlertCircle size={24} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Late Arrivals</div>
+            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)' }}>{lateTodayCount}</div>
+          </div>
+        </div>
+
+        <div className="glass-card" style={{ padding: '1.25rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ padding: '0.85rem', borderRadius: 'var(--radius-sm)', background: 'rgba(245, 158, 11, 0.12)', color: 'var(--accent-amber)' }}>
+            <Clock size={24} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Shift Window</div>
+            <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)' }}>
+              {formatTime12Hour(shiftPolicy.startTime)} - {formatTime12Hour(shiftPolicy.endTime)}
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* TAB 1: WORKFORCE LOGS & MAP (STACKED VERTICALLY) */}
+      {activeTab === 'WORKFORCE' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+          <div className="glass-card" style={{ padding: '1.75rem', borderRadius: 'var(--radius-lg)' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '1.25rem' }}>
+              Live Staff Attendance Stream
+            </h3>
+            <AttendanceLogTable records={records} isAdmin={true} />
+          </div>
+
+          <div className="glass-card" style={{ padding: '1.75rem', borderRadius: 'var(--radius-lg)' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '1.25rem' }}>
+              Live Multi-Employee GPS Map
+            </h3>
+            <LiveMap activeRecord={null} records={records} defaultCoords={{ lat: 12.9716, lng: 77.5946 }} />
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: EMPLOYEE ANALYTICS DASHBOARD */}
+      {activeTab === 'ANALYTICS' && <EmployeeAnalyticsModule />}
+
+      {/* TAB 3: LEAVE REQUESTS & CALENDAR */}
+      {activeTab === 'LEAVES' && <LeaveManagementModule />}
+
+      {/* TAB 4: PAYSLIPS DISBURSAL */}
+      {activeTab === 'PAYSLIPS' && <PayslipsModule />}
+
+      {/* TAB 5: DOCUMENT AUDIT VAULT */}
+      {activeTab === 'DOCUMENTS' && <DocumentsModule />}
+
+      {/* TAB 6: WORK DIARY REVIEWS */}
+      {activeTab === 'DIARIES' && <WorkDiaryReviewModule />}
+
+      {/* Modals */}
       {showPolicyModal && (
-        <ShiftPolicyModal onClose={() => setShowPolicyModal(false)} />
+        <ShiftPolicyModal
+          currentPolicy={shiftPolicy}
+          onSave={(newPol) => {
+            setShiftPolicy(newPol);
+            setShowPolicyModal(false);
+          }}
+          onClose={() => setShowPolicyModal(false)}
+        />
+      )}
+
+      {showClearConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '1rem' }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '420px', padding: '2rem', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+            <Trash2 size={42} style={{ color: 'var(--accent-rose)', marginBottom: '0.75rem' }} />
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>Clear All System Logs?</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: '0.5rem 0 1.5rem 0' }}>
+              This will erase all registered employee profiles, logs, payslips, and leave records.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button onClick={() => setShowClearConfirm(false)} className="btn-secondary" style={{ flex: 1 }}>
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  clearAllData();
+                  setShowClearConfirm(false);
+                }}
+                className="btn-danger"
+                style={{ flex: 1 }}
+              >
+                Yes, Erase All
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>
