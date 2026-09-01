@@ -16,7 +16,7 @@ const generateInitialsAvatar = (name) => {
 };
 
 export const AttendanceProvider = ({ children }) => {
-  const PURGE_KEY = 'intime_purge_v11_supabase_live';
+  const PURGE_KEY = 'intime_purge_v12_supabase_rls_fix';
 
   // Theme mode ('light' | 'dark') - Light Mode by default!
   const [theme, setTheme] = useState(() => {
@@ -101,11 +101,11 @@ export const AttendanceProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Helper push functions for instant database writes
+  // Helper push functions for instant database writes with error checking
   const saveEmployeeToSupabase = async (emp) => {
     try {
       if (!supabase) return;
-      await supabase.from('employees').upsert({
+      const { error } = await supabase.from('employees').upsert({
         id: emp.id,
         employee_id: emp.employeeId || '',
         name: emp.name,
@@ -113,6 +113,9 @@ export const AttendanceProvider = ({ children }) => {
         department: emp.department,
         data: emp
       });
+      if (error) {
+        console.error("Supabase Employee Upsert Error:", error);
+      }
     } catch (e) {
       console.warn("Supabase write employee notice:", e);
     }
@@ -121,12 +124,13 @@ export const AttendanceProvider = ({ children }) => {
   const saveRecordToSupabase = async (rec) => {
     try {
       if (!supabase) return;
-      await supabase.from('attendance_records').upsert({
+      const { error } = await supabase.from('attendance_records').upsert({
         id: rec.id,
         employee_id: rec.employeeId,
         date: rec.date,
         data: rec
       });
+      if (error) console.error("Supabase Record Upsert Error:", error);
     } catch (e) {
       console.warn("Supabase write record notice:", e);
     }
@@ -135,11 +139,12 @@ export const AttendanceProvider = ({ children }) => {
   const savePayslipToSupabase = async (pay) => {
     try {
       if (!supabase) return;
-      await supabase.from('payslips').upsert({
+      const { error } = await supabase.from('payslips').upsert({
         id: pay.id,
         employee_id: pay.employeeId,
         data: pay
       });
+      if (error) console.error("Supabase Payslip Upsert Error:", error);
     } catch (e) {
       console.warn("Supabase write payslip notice:", e);
     }
@@ -148,11 +153,12 @@ export const AttendanceProvider = ({ children }) => {
   const saveDocumentToSupabase = async (doc) => {
     try {
       if (!supabase) return;
-      await supabase.from('documents').upsert({
+      const { error } = await supabase.from('documents').upsert({
         id: doc.id,
         employee_id: doc.employeeId,
         data: doc
       });
+      if (error) console.error("Supabase Document Upsert Error:", error);
     } catch (e) {
       console.warn("Supabase write document notice:", e);
     }
@@ -161,11 +167,12 @@ export const AttendanceProvider = ({ children }) => {
   const saveLeaveToSupabase = async (leave) => {
     try {
       if (!supabase) return;
-      await supabase.from('leaves').upsert({
+      const { error } = await supabase.from('leaves').upsert({
         id: leave.id,
         employee_id: leave.employeeId,
         data: leave
       });
+      if (error) console.error("Supabase Leave Upsert Error:", error);
     } catch (e) {
       console.warn("Supabase write leave notice:", e);
     }
@@ -174,11 +181,12 @@ export const AttendanceProvider = ({ children }) => {
   const saveWorkDiaryToSupabase = async (diary) => {
     try {
       if (!supabase) return;
-      await supabase.from('work_diaries').upsert({
+      const { error } = await supabase.from('work_diaries').upsert({
         id: diary.id,
         employee_id: diary.employeeId,
         data: diary
       });
+      if (error) console.error("Supabase Diary Upsert Error:", error);
     } catch (e) {
       console.warn("Supabase write diary notice:", e);
     }
@@ -190,7 +198,8 @@ export const AttendanceProvider = ({ children }) => {
       if (!supabase) return;
 
       // 1. Sync Employees
-      const { data: emps } = await supabase.from('employees').select('*');
+      const { data: emps, error: empErr } = await supabase.from('employees').select('*');
+      if (empErr) console.error("Sync Employees Error:", empErr);
       if (emps && emps.length > 0) {
         setEmployees(prev => {
           const map = new Map();
