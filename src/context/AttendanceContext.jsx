@@ -1,10 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { INITIAL_EMPLOYEES, ADMIN_USER, DEFAULT_SHIFT_POLICY, generateInitialRecords } from '../mockData';
 import { getUserCoordinates, getAddressFromCoords, checkLateness } from '../utils/geoUtils';
+import { supabase } from '../lib/supabase';
 
 const AttendanceContext = createContext(null);
-
-const CLOUD_STORAGE_ID = 'ff808181a058d43f01a05c61e6120caa';
 
 // Helper to generate a clean SVG initials avatar if no photo uploaded
 const generateInitialsAvatar = (name) => {
@@ -17,7 +16,7 @@ const generateInitialsAvatar = (name) => {
 };
 
 export const AttendanceProvider = ({ children }) => {
-  const PURGE_KEY = 'intime_purge_v10_blank_empid';
+  const PURGE_KEY = 'intime_purge_v11_supabase_live';
 
   // Theme mode ('light' | 'dark') - Light Mode by default!
   const [theme, setTheme] = useState(() => {
@@ -102,159 +101,202 @@ export const AttendanceProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Global Realtime Cloud DB Synchronization
-  const syncWithCloud = async () => {
+  // Supabase Database Sync Logic
+  const syncWithSupabase = async () => {
     try {
-      const response = await fetch(`https://api.restful-api.dev/objects/${CLOUD_STORAGE_ID}`);
-      if (!response.ok) return;
-      const json = await response.json();
-      if (json && json.data) {
-        const cloudEmps = json.data.employees || [];
-        const cloudRecs = json.data.records || [];
-        const cloudPayslips = json.data.payslips || [];
-        const cloudDocs = json.data.documents || [];
-        const cloudLeaves = json.data.leaves || [];
-        const cloudDiaries = json.data.workDiaries || [];
+      if (!supabase) return;
 
-        if (cloudEmps.length > 0) {
-          setEmployees(prev => {
-            const map = new Map();
-            prev.forEach(e => map.set(e.id || e.email, e));
-            cloudEmps.forEach(e => {
-              const key = e.id || e.email;
-              const existing = map.get(key) || {};
-              map.set(key, { ...existing, ...e });
-            });
-            const merged = Array.from(map.values());
-            localStorage.setItem('intime_employees', JSON.stringify(merged));
-            return merged;
+      // 1. Sync Employees
+      const { data: emps } = await supabase.from('employees').select('*');
+      if (emps && emps.length > 0) {
+        setEmployees(prev => {
+          const map = new Map();
+          prev.forEach(e => map.set(e.id || e.email, e));
+          emps.forEach(row => {
+            const item = row.data ? { ...row.data, id: row.id, employeeId: row.employee_id || row.data.employeeId } : row;
+            map.set(item.id || item.email, item);
           });
-        }
+          const merged = Array.from(map.values());
+          localStorage.setItem('intime_employees', JSON.stringify(merged));
+          return merged;
+        });
+      }
 
-        if (cloudRecs.length > 0) {
-          setRecords(prev => {
-            const map = new Map();
-            prev.forEach(r => map.set(r.id, r));
-            cloudRecs.forEach(r => map.set(r.id, r));
-            const merged = Array.from(map.values());
-            localStorage.setItem('intime_records', JSON.stringify(merged));
-            return merged;
+      // 2. Sync Records
+      const { data: recs } = await supabase.from('attendance_records').select('*');
+      if (recs && recs.length > 0) {
+        setRecords(prev => {
+          const map = new Map();
+          prev.forEach(r => map.set(r.id, r));
+          recs.forEach(row => {
+            const item = row.data ? { ...row.data, id: row.id } : row;
+            map.set(item.id, item);
           });
-        }
+          const merged = Array.from(map.values());
+          localStorage.setItem('intime_records', JSON.stringify(merged));
+          return merged;
+        });
+      }
 
-        if (cloudPayslips.length > 0) {
-          setPayslips(prev => {
-            const map = new Map();
-            prev.forEach(p => map.set(p.id, p));
-            cloudPayslips.forEach(p => map.set(p.id, p));
-            const merged = Array.from(map.values());
-            localStorage.setItem('intime_payslips', JSON.stringify(merged));
-            return merged;
+      // 3. Sync Payslips
+      const { data: pays } = await supabase.from('payslips').select('*');
+      if (pays && pays.length > 0) {
+        setPayslips(prev => {
+          const map = new Map();
+          prev.forEach(p => map.set(p.id, p));
+          pays.forEach(row => {
+            const item = row.data ? { ...row.data, id: row.id } : row;
+            map.set(item.id, item);
           });
-        }
+          const merged = Array.from(map.values());
+          localStorage.setItem('intime_payslips', JSON.stringify(merged));
+          return merged;
+        });
+      }
 
-        if (cloudDocs.length > 0) {
-          setDocuments(prev => {
-            const map = new Map();
-            prev.forEach(d => map.set(d.id, d));
-            cloudDocs.forEach(d => map.set(d.id, d));
-            const merged = Array.from(map.values());
-            localStorage.setItem('intime_documents', JSON.stringify(merged));
-            return merged;
+      // 4. Sync Documents
+      const { data: docs } = await supabase.from('documents').select('*');
+      if (docs && docs.length > 0) {
+        setDocuments(prev => {
+          const map = new Map();
+          prev.forEach(d => map.set(d.id, d));
+          docs.forEach(row => {
+            const item = row.data ? { ...row.data, id: row.id } : row;
+            map.set(item.id, item);
           });
-        }
+          const merged = Array.from(map.values());
+          localStorage.setItem('intime_documents', JSON.stringify(merged));
+          return merged;
+        });
+      }
 
-        if (cloudLeaves.length > 0) {
-          setLeaves(prev => {
-            const map = new Map();
-            prev.forEach(l => map.set(l.id, l));
-            cloudLeaves.forEach(l => map.set(l.id, l));
-            const merged = Array.from(map.values());
-            localStorage.setItem('intime_leaves', JSON.stringify(merged));
-            return merged;
+      // 5. Sync Leaves
+      const { data: levs } = await supabase.from('leaves').select('*');
+      if (levs && levs.length > 0) {
+        setLeaves(prev => {
+          const map = new Map();
+          prev.forEach(l => map.set(l.id, l));
+          levs.forEach(row => {
+            const item = row.data ? { ...row.data, id: row.id } : row;
+            map.set(item.id, item);
           });
-        }
+          const merged = Array.from(map.values());
+          localStorage.setItem('intime_leaves', JSON.stringify(merged));
+          return merged;
+        });
+      }
 
-        if (cloudDiaries.length > 0) {
-          setWorkDiaries(prev => {
-            const map = new Map();
-            prev.forEach(w => map.set(w.id, w));
-            cloudDiaries.forEach(w => map.set(w.id, w));
-            const merged = Array.from(map.values());
-            localStorage.setItem('intime_work_diaries', JSON.stringify(merged));
-            return merged;
+      // 6. Sync Work Diaries
+      const { data: diaries } = await supabase.from('work_diaries').select('*');
+      if (diaries && diaries.length > 0) {
+        setWorkDiaries(prev => {
+          const map = new Map();
+          prev.forEach(w => map.set(w.id, w));
+          diaries.forEach(row => {
+            const item = row.data ? { ...row.data, id: row.id } : row;
+            map.set(item.id, item);
           });
-        }
+          const merged = Array.from(map.values());
+          localStorage.setItem('intime_work_diaries', JSON.stringify(merged));
+          return merged;
+        });
       }
     } catch (err) {
-      console.warn("Cloud read sync notice:", err);
+      console.warn("Supabase read notice:", err);
     }
   };
 
-  const pushToCloud = async (empList, recList, payList, docList, leaveList, diaryList) => {
-    try {
-      await fetch(`https://api.restful-api.dev/objects/${CLOUD_STORAGE_ID}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'intime_portal_master_v1',
-          data: {
-            employees: empList !== undefined ? empList : employees,
-            records: recList !== undefined ? recList : records,
-            payslips: payList !== undefined ? payList : payslips,
-            documents: docList !== undefined ? docList : documents,
-            leaves: leaveList !== undefined ? leaveList : leaves,
-            workDiaries: diaryList !== undefined ? diaryList : workDiaries
-          }
-        })
-      });
-    } catch (err) {
-      console.warn("Cloud write sync notice:", err);
-    }
-  };
-
-  // Poll cloud database every 4 seconds for real-time multi-device sync
+  // Realtime Polling every 3 seconds for instant cross-device updates
   useEffect(() => {
-    syncWithCloud();
+    syncWithSupabase();
     const interval = setInterval(() => {
-      syncWithCloud();
-    }, 4000);
+      syncWithSupabase();
+    }, 3000);
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-record Exit Time as Clock Out if user closes web app/tab without checking out
-  useEffect(() => {
-    const handleAppExit = () => {
-      if (currentUser && currentUser.roleType === 'EMPLOYEE') {
-        const activeRec = records.find(r => r.employeeId === currentUser.id && r.status === 'CLOCK_IN');
-        if (activeRec) {
-          const now = new Date();
-          const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-          
-          const updatedRecords = records.map(r => {
-            if (r.id === activeRec.id) {
-              return {
-                ...r,
-                clockOutTime: timeString,
-                clockOutIso: now.toISOString(),
-                status: 'CLOCK_OUT',
-                autoClockOut: true
-              };
-            }
-            return r;
-          });
+  // Helper push functions for instant database writes
+  const saveEmployeeToSupabase = async (emp) => {
+    try {
+      if (!supabase) return;
+      await supabase.from('employees').upsert({
+        id: emp.id,
+        employee_id: emp.employeeId || '',
+        name: emp.name,
+        email: emp.email,
+        department: emp.department,
+        data: emp
+      });
+    } catch (e) {
+      console.warn("Supabase write employee notice:", e);
+    }
+  };
 
-          localStorage.setItem('intime_records', JSON.stringify(updatedRecords));
-          pushToCloud(employees, updatedRecords, payslips, documents, leaves, workDiaries);
-        }
-      }
-    };
+  const saveRecordToSupabase = async (rec) => {
+    try {
+      if (!supabase) return;
+      await supabase.from('attendance_records').upsert({
+        id: rec.id,
+        employee_id: rec.employeeId,
+        date: rec.date,
+        data: rec
+      });
+    } catch (e) {
+      console.warn("Supabase write record notice:", e);
+    }
+  };
 
-    window.addEventListener('beforeunload', handleAppExit);
-    return () => {
-      window.removeEventListener('beforeunload', handleAppExit);
-    };
-  }, [currentUser, records, employees, payslips, documents, leaves, workDiaries]);
+  const savePayslipToSupabase = async (pay) => {
+    try {
+      if (!supabase) return;
+      await supabase.from('payslips').upsert({
+        id: pay.id,
+        employee_id: pay.employeeId,
+        data: pay
+      });
+    } catch (e) {
+      console.warn("Supabase write payslip notice:", e);
+    }
+  };
+
+  const saveDocumentToSupabase = async (doc) => {
+    try {
+      if (!supabase) return;
+      await supabase.from('documents').upsert({
+        id: doc.id,
+        employee_id: doc.employeeId,
+        data: doc
+      });
+    } catch (e) {
+      console.warn("Supabase write document notice:", e);
+    }
+  };
+
+  const saveLeaveToSupabase = async (leave) => {
+    try {
+      if (!supabase) return;
+      await supabase.from('leaves').upsert({
+        id: leave.id,
+        employee_id: leave.employeeId,
+        data: leave
+      });
+    } catch (e) {
+      console.warn("Supabase write leave notice:", e);
+    }
+  };
+
+  const saveWorkDiaryToSupabase = async (diary) => {
+    try {
+      if (!supabase) return;
+      await supabase.from('work_diaries').upsert({
+        id: diary.id,
+        employee_id: diary.employeeId,
+        data: diary
+      });
+    } catch (e) {
+      console.warn("Supabase write diary notice:", e);
+    }
+  };
 
   // Sync to local storage
   useEffect(() => {
@@ -294,7 +336,7 @@ export const AttendanceProvider = ({ children }) => {
   }, [workDiaries]);
 
   // Clear all data (Admin Action)
-  const clearAllData = () => {
+  const clearAllData = async () => {
     setEmployees([]);
     setRecords([]);
     setPayslips([]);
@@ -307,7 +349,19 @@ export const AttendanceProvider = ({ children }) => {
     localStorage.setItem('intime_documents', JSON.stringify([]));
     localStorage.setItem('intime_leaves', JSON.stringify([]));
     localStorage.setItem('intime_work_diaries', JSON.stringify([]));
-    pushToCloud([], [], [], [], [], []);
+
+    try {
+      if (supabase) {
+        await supabase.from('employees').delete().neq('id', '0');
+        await supabase.from('attendance_records').delete().neq('id', '0');
+        await supabase.from('payslips').delete().neq('id', '0');
+        await supabase.from('documents').delete().neq('id', '0');
+        await supabase.from('leaves').delete().neq('id', '0');
+        await supabase.from('work_diaries').delete().neq('id', '0');
+      }
+    } catch (e) {
+      console.warn("Clear DB notice:", e);
+    }
   };
 
   // Login handler
@@ -394,11 +448,8 @@ export const AttendanceProvider = ({ children }) => {
       roleType: 'EMPLOYEE'
     };
 
-    setEmployees(prev => {
-      const updated = [...prev, newProfile];
-      pushToCloud(updated, records, payslips, documents, leaves, workDiaries);
-      return updated;
-    });
+    setEmployees(prev => [...prev, newProfile]);
+    saveEmployeeToSupabase(newProfile);
     setCurrentUser(newProfile);
     return { success: true, user: newProfile };
   };
@@ -413,19 +464,20 @@ export const AttendanceProvider = ({ children }) => {
 
         const updatedRecords = records.map(r => {
           if (r.id === activeRec.id) {
-            return {
+            const updated = {
               ...r,
               clockOutTime: timeString,
               clockOutIso: now.toISOString(),
               status: 'CLOCK_OUT'
             };
+            saveRecordToSupabase(updated);
+            return updated;
           }
           return r;
         });
 
         setRecords(updatedRecords);
         localStorage.setItem('intime_records', JSON.stringify(updatedRecords));
-        pushToCloud(employees, updatedRecords, payslips, documents, leaves, workDiaries);
       }
     }
     setCurrentUser(null);
@@ -436,7 +488,7 @@ export const AttendanceProvider = ({ children }) => {
     r => r.employeeId === currentUser.id && r.status === 'CLOCK_IN'
   ) : null;
 
-  // Clock In Action (with camera photo & geotag)
+  // Clock In Action
   const clockIn = async (workMode = 'Remote', overrideCoords = null, capturedPhoto = null) => {
     if (!currentUser) return { success: false, error: "Must be logged in to clock in." };
 
@@ -481,11 +533,8 @@ export const AttendanceProvider = ({ children }) => {
         accuracy: 10,
       };
 
-      setRecords(prev => {
-        const updated = [newRecord, ...prev];
-        pushToCloud(employees, updated, payslips, documents, leaves, workDiaries);
-        return updated;
-      });
+      setRecords(prev => [newRecord, ...prev]);
+      saveRecordToSupabase(newRecord);
       return { success: true, record: newRecord };
     } catch (err) {
       console.error("Clock in failed:", err);
@@ -493,7 +542,7 @@ export const AttendanceProvider = ({ children }) => {
     }
   };
 
-  // Clock Out Action (with mandatory Work Diary data)
+  // Clock Out Action
   const clockOut = async (workDiaryData = null) => {
     if (!currentUser) return { success: false, error: "Must be logged in to clock out." };
 
@@ -507,7 +556,6 @@ export const AttendanceProvider = ({ children }) => {
     const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
     const todayStr = now.toISOString().split('T')[0];
 
-    let newDiaries = workDiaries;
     if (workDiaryData) {
       const diaryRecord = {
         id: `WDIARY-${Date.now()}`,
@@ -520,26 +568,26 @@ export const AttendanceProvider = ({ children }) => {
         shiftNotes: workDiaryData.shiftNotes || '',
         submittedAt: timeString
       };
-      newDiaries = [diaryRecord, ...workDiaries];
-      setWorkDiaries(newDiaries);
+      setWorkDiaries(prev => [diaryRecord, ...prev]);
+      saveWorkDiaryToSupabase(diaryRecord);
     }
 
     const newRecords = records.map(r => {
       if (r.id === activeRec.id) {
-        return {
+        const updated = {
           ...r,
           clockOutTime: timeString,
           clockOutIso: now.toISOString(),
           status: 'CLOCK_OUT',
           workDiarySubmitted: !!workDiaryData
         };
+        saveRecordToSupabase(updated);
+        return updated;
       }
       return r;
     });
 
     setRecords(newRecords);
-    pushToCloud(employees, newRecords, payslips, documents, leaves, newDiaries);
-
     return { success: true };
   };
 
@@ -558,20 +606,18 @@ export const AttendanceProvider = ({ children }) => {
       fileName: payslipData.fileName || `Payslip_${payslipData.month}_${payslipData.employeeName}.pdf`,
       fileData: payslipData.fileData || null
     };
-    setPayslips(prev => {
-      const updated = [newPayslip, ...prev];
-      pushToCloud(employees, records, updated, documents, leaves, workDiaries);
-      return updated;
-    });
+    setPayslips(prev => [newPayslip, ...prev]);
+    savePayslipToSupabase(newPayslip);
     return { success: true, payslip: newPayslip };
   };
 
-  const deletePayslip = (id) => {
-    setPayslips(prev => {
-      const updated = prev.filter(p => p.id !== id);
-      pushToCloud(employees, records, updated, documents, leaves, workDiaries);
-      return updated;
-    });
+  const deletePayslip = async (id) => {
+    setPayslips(prev => prev.filter(p => p.id !== id));
+    try {
+      if (supabase) await supabase.from('payslips').delete().eq('id', id);
+    } catch (e) {
+      console.warn("Delete payslip notice:", e);
+    }
   };
 
   // Document Management
@@ -589,20 +635,18 @@ export const AttendanceProvider = ({ children }) => {
       uploadDate: new Date().toLocaleDateString(),
       status: 'Verified'
     };
-    setDocuments(prev => {
-      const updated = [newDoc, ...prev];
-      pushToCloud(employees, records, payslips, updated, leaves, workDiaries);
-      return updated;
-    });
+    setDocuments(prev => [newDoc, ...prev]);
+    saveDocumentToSupabase(newDoc);
     return { success: true, document: newDoc };
   };
 
-  const deleteDocument = (id) => {
-    setDocuments(prev => {
-      const updated = prev.filter(d => d.id !== id);
-      pushToCloud(employees, records, payslips, updated, leaves, workDiaries);
-      return updated;
-    });
+  const deleteDocument = async (id) => {
+    setDocuments(prev => prev.filter(d => d.id !== id));
+    try {
+      if (supabase) await supabase.from('documents').delete().eq('id', id);
+    } catch (e) {
+      console.warn("Delete doc notice:", e);
+    }
   };
 
   // Leave Management
@@ -619,44 +663,43 @@ export const AttendanceProvider = ({ children }) => {
       status: 'PENDING',
       appliedOn: new Date().toLocaleDateString()
     };
-    setLeaves(prev => {
-      const updated = [newLeave, ...prev];
-      pushToCloud(employees, records, payslips, documents, updated, workDiaries);
-      return updated;
-    });
+    setLeaves(prev => [newLeave, ...prev]);
+    saveLeaveToSupabase(newLeave);
     return { success: true, leave: newLeave };
   };
 
   const updateLeaveStatus = (leaveId, newStatus, adminNote = '') => {
-    setLeaves(prev => {
-      const updated = prev.map(l => {
-        if (l.id === leaveId) {
-          return { ...l, status: newStatus, adminNote };
-        }
-        return l;
-      });
-      pushToCloud(employees, records, payslips, documents, updated, workDiaries);
-      return updated;
-    });
+    setLeaves(prev => prev.map(l => {
+      if (l.id === leaveId) {
+        const updated = { ...l, status: newStatus, adminNote };
+        saveLeaveToSupabase(updated);
+        return updated;
+      }
+      return l;
+    }));
   };
 
-  // Delete Employee Account (Admin Action)
-  const deleteEmployeeAccount = (employeeId) => {
-    const newEmps = employees.filter(e => e.id !== employeeId);
-    const newRecs = records.filter(r => r.employeeId !== employeeId);
-    const newPays = payslips.filter(p => p.employeeId !== employeeId);
-    const newDocs = documents.filter(d => d.employeeId !== employeeId);
-    const newLevs = leaves.filter(l => l.employeeId !== employeeId);
-    const newWd = workDiaries.filter(w => w.employeeId !== employeeId);
+  // Delete Employee Account
+  const deleteEmployeeAccount = async (employeeId) => {
+    setEmployees(prev => prev.filter(e => e.id !== employeeId));
+    setRecords(prev => prev.filter(r => r.employeeId !== employeeId));
+    setPayslips(prev => prev.filter(p => p.employeeId !== employeeId));
+    setDocuments(prev => prev.filter(d => d.employeeId !== employeeId));
+    setLeaves(prev => prev.filter(l => l.employeeId !== employeeId));
+    setWorkDiaries(prev => prev.filter(w => w.employeeId !== employeeId));
 
-    setEmployees(newEmps);
-    setRecords(newRecs);
-    setPayslips(newPays);
-    setDocuments(newDocs);
-    setLeaves(newLevs);
-    setWorkDiaries(newWd);
-
-    pushToCloud(newEmps, newRecs, newPays, newDocs, newLevs, newWd);
+    try {
+      if (supabase) {
+        await supabase.from('employees').delete().eq('id', employeeId);
+        await supabase.from('attendance_records').delete().eq('employee_id', employeeId);
+        await supabase.from('payslips').delete().eq('employee_id', employeeId);
+        await supabase.from('documents').delete().eq('employee_id', employeeId);
+        await supabase.from('leaves').delete().eq('employee_id', employeeId);
+        await supabase.from('work_diaries').delete().eq('employee_id', employeeId);
+      }
+    } catch (e) {
+      console.warn("Delete emp notice:", e);
+    }
     return { success: true };
   };
 
