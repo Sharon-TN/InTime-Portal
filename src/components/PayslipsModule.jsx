@@ -1,18 +1,23 @@
 import React, { useState } from 'react';
 import { useAttendance } from '../context/AttendanceContext';
-import { Download, FileText, Upload, Trash2, CheckCircle, File, Eye, Sparkles } from 'lucide-react';
+import { Download, FileText, Upload, Trash2, CheckCircle, File, Eye, Sparkles, UserCheck } from 'lucide-react';
 
 export default function PayslipsModule() {
   const { currentUser, payslips, employees, uploadPayslip, deletePayslip } = useAttendance();
 
   const isAdmin = currentUser?.roleType === 'ADMIN';
 
-  // State for Admin PDF Upload Modal
+  // State for Bulk Auto-Route Admin PDF Upload Modal
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [month, setMonth] = useState('August 2026');
-  const [netSalary, setNetSalary] = useState('75,000');
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isProcessingBulk, setIsProcessingBulk] = useState(false);
+
+  // State for Manual Direct Employee PDF Upload Modal
+  const [showManualUploadModal, setShowManualUploadModal] = useState(false);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [manualMonth, setManualMonth] = useState('August 2026');
+  const [manualFile, setManualFile] = useState(null);
 
   // Filter payslips: Admin sees all; Employee sees only their own
   const visiblePayslips = isAdmin
@@ -138,7 +143,6 @@ export default function PayslipsModule() {
       employeeId: matchedEmp.id,
       employeeName: matchedEmp.name,
       month,
-      netSalary,
       fileName: file.name,
       fileData: dataUrl
     };
@@ -188,7 +192,6 @@ export default function PayslipsModule() {
           employeeId: res.employeeId,
           employeeName: res.employeeName,
           month: res.month,
-          netSalary: res.netSalary,
           fileName: res.fileName,
           fileData: res.fileData
         });
@@ -204,6 +207,48 @@ export default function PayslipsModule() {
       alert("Error processing payslip PDFs: " + err.message);
     } finally {
       setIsProcessingBulk(false);
+    }
+  };
+
+  // Direct Employee Manual PDF Upload Handler
+  const handleManualPdfUpload = async (e) => {
+    e.preventDefault();
+    if (!selectedEmployeeId) {
+      alert('Please select an employee from the list.');
+      return;
+    }
+    if (!manualFile) {
+      alert('Please select a PDF file to upload.');
+      return;
+    }
+
+    const matchedEmp = employees.find(emp => emp.id === selectedEmployeeId);
+    if (!matchedEmp) {
+      alert('Selected employee not found in company roster.');
+      return;
+    }
+
+    try {
+      const dataUrl = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve(ev.target.result);
+        reader.readAsDataURL(manualFile);
+      });
+
+      uploadPayslip({
+        employeeId: matchedEmp.id,
+        employeeName: matchedEmp.name,
+        month: manualMonth,
+        fileName: manualFile.name,
+        fileData: dataUrl
+      });
+
+      alert(`✅ Payslip successfully uploaded and sent to ${matchedEmp.name} (${matchedEmp.id})!`);
+      setManualFile(null);
+      setShowManualUploadModal(false);
+    } catch (err) {
+      console.error("Manual upload error:", err);
+      alert("Failed to upload payslip: " + err.message);
     }
   };
 
@@ -227,7 +272,7 @@ export default function PayslipsModule() {
         <div>
           <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <FileText size={24} style={{ color: 'var(--accent-emerald)' }} />
-            <span>Monthly Payslips & Bulk PDF Auto-Routing</span>
+            <span>{isAdmin ? "Monthly Payslips & Bulk PDF Auto-Routing" : "Monthly Payslips"}</span>
           </h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.2rem' }}>
             {isAdmin ? "Upload single or multiple PDF payslips; system automatically reads in-PDF text content to route each PDF to the right employee" : "View and download official payslip PDFs uploaded by HR"}
@@ -235,14 +280,32 @@ export default function PayslipsModule() {
         </div>
 
         {isAdmin && (
-          <button
-            className="btn-primary"
-            onClick={() => setShowUploadModal(true)}
-            style={{ background: 'var(--accent-emerald)', borderColor: 'var(--accent-emerald)', gap: '0.5rem' }}
-          >
-            <Sparkles size={18} />
-            <span>Upload and Auto-Route Payslips</span>
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', minWidth: '260px' }}>
+            {/* Auto-Route Payslips Button */}
+            <button
+              className="btn-primary"
+              onClick={() => setShowUploadModal(true)}
+              style={{ background: 'var(--accent-emerald)', borderColor: 'var(--accent-emerald)', gap: '0.5rem', width: '100%', justifyContent: 'center' }}
+            >
+              <Sparkles size={18} />
+              <span>Upload and Auto-Route Payslips</span>
+            </button>
+
+            {/* Manual Upload Payslips Button (Below Auto-Route Button) */}
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                if (employees.length > 0 && !selectedEmployeeId) {
+                  setSelectedEmployeeId(employees[0].id);
+                }
+                setShowManualUploadModal(true);
+              }}
+              style={{ background: 'rgba(59, 130, 246, 0.12)', borderColor: 'var(--primary)', color: 'var(--primary)', gap: '0.5rem', fontWeight: 800, width: '100%', justifyContent: 'center' }}
+            >
+              <Upload size={18} />
+              <span>Upload Payslips</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -252,7 +315,7 @@ export default function PayslipsModule() {
           <FileText size={48} style={{ color: 'var(--text-subtle)', marginBottom: '0.75rem' }} />
           <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>No Payslips Available</h4>
           <p style={{ fontSize: '0.88rem', marginTop: '0.3rem' }}>
-            {isAdmin ? "Click 'Upload and Auto-Route Payslips' above to upload official PDF payslips for staff." : "Monthly payslip PDFs uploaded by HR will appear here for download."}
+            {isAdmin ? "Click 'Upload Payslips' or 'Upload and Auto-Route Payslips' above to send official PDF payslips to staff." : "Monthly payslip PDFs uploaded by HR will appear here for download."}
           </p>
         </div>
       ) : (
@@ -276,11 +339,6 @@ export default function PayslipsModule() {
                     <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                       {p.fileName || `Payslip_${p.month}.pdf`}
                     </div>
-                    {p.netSalary && (
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Net Amount: ₹{p.netSalary}
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -312,7 +370,7 @@ export default function PayslipsModule() {
         </div>
       )}
 
-      {/* Admin Bulk PDF Upload Modal */}
+      {/* Admin Auto-Route PDF Upload Modal */}
       {showUploadModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '1rem' }}>
           <div className="glass-card" style={{ width: '100%', maxWidth: '520px', padding: '2rem', borderRadius: 'var(--radius-lg)' }}>
@@ -357,17 +415,6 @@ export default function PayslipsModule() {
                 />
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Net Salary Amount (Optional)</label>
-                <input
-                  type="text"
-                  value={netSalary}
-                  onChange={e => setNetSalary(e.target.value)}
-                  placeholder="E.g., 75,000"
-                  style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.65rem', borderRadius: 'var(--radius-sm)' }}
-                />
-              </div>
-
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
                 <button type="button" onClick={() => setShowUploadModal(false)} className="btn-secondary" style={{ flex: 1 }}>
                   Cancel
@@ -379,6 +426,84 @@ export default function PayslipsModule() {
                   style={{ flex: 1, background: 'var(--accent-emerald)', borderColor: 'var(--accent-emerald)', padding: '0.7rem' }}
                 >
                   {isProcessingBulk ? 'Extracting PDF Text & Routing...' : 'Upload and Auto-Route Payslips'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Manual Direct Employee Upload Modal */}
+      {showManualUploadModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '1rem' }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '520px', padding: '2rem', borderRadius: 'var(--radius-lg)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
+              <Upload size={22} style={{ color: 'var(--primary)' }} />
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                Upload Payslip to Particular Employee
+              </h3>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: '1.25rem' }}>
+              Select a specific employee from your company roster and attach their PDF payslip to send it directly to their account.
+            </p>
+
+            <form onSubmit={handleManualPdfUpload} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Select Particular Employee *</label>
+                <select
+                  value={selectedEmployeeId}
+                  onChange={e => setSelectedEmployeeId(e.target.value)}
+                  style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.65rem', borderRadius: 'var(--radius-sm)', fontSize: '0.88rem', outline: 'none' }}
+                  required
+                >
+                  <option value="">-- Select Employee --</option>
+                  {employees.map(emp => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name} ({emp.department || emp.role || 'Staff'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Pay Month & Year *</label>
+                <input
+                  type="text"
+                  value={manualMonth}
+                  onChange={e => setManualMonth(e.target.value)}
+                  placeholder="E.g., August 2026"
+                  style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.65rem', borderRadius: 'var(--radius-sm)', outline: 'none' }}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Select Employee PDF Payslip *</label>
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={e => setManualFile(e.target.files[0])}
+                  style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.65rem', borderRadius: 'var(--radius-sm)' }}
+                  required
+                />
+                {manualFile && (
+                  <div style={{ fontSize: '0.78rem', color: 'var(--primary)', fontWeight: 700, marginTop: '0.4rem' }}>
+                    ✓ Attached PDF: {manualFile.name}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
+                <button type="button" onClick={() => setShowManualUploadModal(false)} className="btn-secondary" style={{ flex: 1 }}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  style={{ flex: 1, background: 'var(--primary)', borderColor: 'var(--primary)', padding: '0.7rem' }}
+                >
+                  Send Payslip to Employee
                 </button>
               </div>
             </form>

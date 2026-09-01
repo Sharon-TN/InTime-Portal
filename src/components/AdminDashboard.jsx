@@ -10,10 +10,11 @@ import DocumentsModule from './DocumentsModule';
 import LeaveManagementModule from './LeaveManagementModule';
 import WorkDiaryReviewModule from './WorkDiaryReviewModule';
 import EmployeeAnalyticsModule from './EmployeeAnalyticsModule';
+import AventiqEmployeeDetailsModule from './AventiqEmployeeDetailsModule';
 import { formatTime12Hour } from '../utils/geoUtils';
 import {
   Users, CheckCircle, Clock, AlertCircle, Settings, Trash2, Sliders, MapPin,
-  BookOpen, Calendar, FileText, Folder, Radio, ShieldCheck, BarChart3
+  BookOpen, Calendar, FileText, Folder, Radio, ShieldCheck, BarChart3, UserX, UserMinus, AlertTriangle, FileSpreadsheet
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -22,13 +23,18 @@ export default function AdminDashboard() {
     records,
     shiftPolicy,
     setShiftPolicy,
-    clearAllData
+    clearAllData,
+    deleteEmployeeAccount
   } = useAttendance();
 
   const [activeTab, setActiveTab] = useState('WORKFORCE'); // 'WORKFORCE' | 'ANALYTICS' | 'LEAVES' | 'PAYSLIPS' | 'DOCUMENTS' | 'DIARIES'
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  
+  // State for Delete Employee Account Modal
+  const [showDeleteEmpModal, setShowDeleteEmpModal] = useState(false);
+  const [empToDeleteConfirm, setEmpToDeleteConfirm] = useState(null);
 
   // Metrics
   const totalEmployees = employees.length;
@@ -37,6 +43,17 @@ export default function AdminDashboard() {
   const todayStr = new Date().toISOString().split('T')[0];
   const todayRecords = records.filter(r => r.date === todayStr);
   const lateTodayCount = todayRecords.filter(r => r.latenessStatus === 'LATE').length;
+
+  const handleDeleteEmployee = (emp) => {
+    setEmpToDeleteConfirm(emp);
+  };
+
+  const confirmDeleteEmployee = () => {
+    if (empToDeleteConfirm) {
+      deleteEmployeeAccount(empToDeleteConfirm.id);
+      setEmpToDeleteConfirm(null);
+    }
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
@@ -59,7 +76,7 @@ export default function AdminDashboard() {
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
             <button
               className="btn-secondary"
               onClick={() => setShowPolicyModal(true)}
@@ -76,6 +93,24 @@ export default function AdminDashboard() {
             >
               <Trash2 size={16} />
               <span>Clear Logs</span>
+            </button>
+
+            {/* NEW BUTTON: Delete Employee Account */}
+            <button
+              className="btn-danger"
+              onClick={() => setShowDeleteEmpModal(true)}
+              style={{
+                fontSize: '0.85rem',
+                background: 'rgba(239, 68, 68, 0.12)',
+                border: '1px solid var(--accent-rose)',
+                color: 'var(--accent-rose)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem'
+              }}
+            >
+              <UserX size={16} />
+              <span>Delete Employee Account</span>
             </button>
 
             <LiveClock />
@@ -101,7 +136,7 @@ export default function AdminDashboard() {
             <span>Workforce Logs & Map</span>
           </button>
 
-          {/* NEW TAB: Employee Analytics Dashboard */}
+          {/* Employee Analytics Dashboard Tab */}
           <button
             className={`btn-secondary ${activeTab === 'ANALYTICS' ? 'active-tab' : ''}`}
             onClick={() => setActiveTab('ANALYTICS')}
@@ -177,6 +212,22 @@ export default function AdminDashboard() {
             <span>Work Diary Reviews</span>
           </button>
 
+          {/* TAB 7: Aventiq Employee Details */}
+          <button
+            className={`btn-secondary ${activeTab === 'AVENTIQ_DETAILS' ? 'active-tab' : ''}`}
+            onClick={() => setActiveTab('AVENTIQ_DETAILS')}
+            style={{
+              padding: '0.6rem 1.1rem',
+              fontSize: '0.85rem',
+              background: activeTab === 'AVENTIQ_DETAILS' ? 'var(--accent-emerald)' : 'transparent',
+              color: activeTab === 'AVENTIQ_DETAILS' ? '#FFFFFF' : 'var(--text-main)',
+              borderColor: activeTab === 'AVENTIQ_DETAILS' ? 'var(--accent-emerald)' : 'var(--border-color)'
+            }}
+          >
+            <FileSpreadsheet size={16} />
+            <span>Aventiq Employee Details</span>
+          </button>
+
         </div>
       </div>
 
@@ -227,7 +278,7 @@ export default function AdminDashboard() {
 
       </div>
 
-      {/* TAB 1: WORKFORCE LOGS & MAP (STACKED VERTICALLY) */}
+      {/* TAB 1: WORKFORCE LOGS & MAP */}
       {activeTab === 'WORKFORCE' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
           <div className="glass-card" style={{ padding: '1.75rem', borderRadius: 'var(--radius-lg)' }}>
@@ -261,6 +312,9 @@ export default function AdminDashboard() {
       {/* TAB 6: WORK DIARY REVIEWS */}
       {activeTab === 'DIARIES' && <WorkDiaryReviewModule />}
 
+      {/* TAB 7: AVENTIQ EMPLOYEE DETAILS */}
+      {activeTab === 'AVENTIQ_DETAILS' && <AventiqEmployeeDetailsModule />}
+
       {/* Modals */}
       {showPolicyModal && (
         <ShiftPolicyModal
@@ -273,6 +327,7 @@ export default function AdminDashboard() {
         />
       )}
 
+      {/* Clear Logs Modal */}
       {showClearConfirm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '1rem' }}>
           <div className="glass-card" style={{ width: '100%', maxWidth: '420px', padding: '2rem', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
@@ -294,6 +349,136 @@ export default function AdminDashboard() {
                 style={{ flex: 1 }}
               >
                 Yes, Erase All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Employee Account Modal */}
+      {showDeleteEmpModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '1rem' }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '580px', padding: '2rem', borderRadius: 'var(--radius-lg)', maxHeight: '90vh', overflowY: 'auto' }}>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+              <div style={{ padding: '0.6rem', borderRadius: 'var(--radius-sm)', background: 'rgba(239, 68, 68, 0.15)', color: 'var(--accent-rose)' }}>
+                <UserX size={24} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                  Delete Employee Account
+                </h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.83rem' }}>
+                  Admin privileges to remove specific employee accounts from the company roster.
+                </p>
+              </div>
+            </div>
+
+            {employees.length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <Users size={36} style={{ color: 'var(--text-subtle)', marginBottom: '0.5rem' }} />
+                <p style={{ fontSize: '0.9rem' }}>No employee accounts found in the company roster.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginTop: '1.25rem' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Select Employee to Remove ({employees.length} Total)
+                </div>
+
+                {employees.map((emp) => (
+                  <div
+                    key={emp.id}
+                    style={{
+                      background: 'var(--bg-input)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '0.85rem 1.1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justify: 'space-between',
+                      gap: '1rem'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--primary)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1rem' }}>
+                        {(emp.name || 'E').charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                          {emp.name}
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          {emp.email} • {emp.role || 'Software Engineer'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteEmployee(emp)}
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        border: '1px solid var(--accent-rose)',
+                        color: 'var(--accent-rose)',
+                        padding: '0.45rem 0.85rem',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <UserMinus size={14} />
+                      <span>Delete Account</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ marginTop: '1.5rem', textAlign: 'right' }}>
+              <button
+                type="button"
+                onClick={() => setShowDeleteEmpModal(false)}
+                className="btn-secondary"
+                style={{ padding: '0.6rem 1.25rem' }}
+              >
+                Close Window
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Step for Deleting Specific Employee */}
+      {empToDeleteConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100000, padding: '1rem' }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '440px', padding: '2rem', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+            <AlertTriangle size={48} style={{ color: 'var(--accent-rose)', marginBottom: '0.85rem' }} />
+            <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main)' }}>
+              Confirm Account Deletion?
+            </h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: '0.6rem 0 1.5rem 0', lineHeight: 1.5 }}>
+              Are you sure you want to permanently delete <strong style={{ color: 'var(--text-main)' }}>{empToDeleteConfirm.name}</strong>'s account? All associated attendance logs, payslips, leaves, and work diaries will be removed.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                onClick={() => setEmpToDeleteConfirm(null)}
+                className="btn-secondary"
+                style={{ flex: 1 }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteEmployee}
+                className="btn-danger"
+                style={{ flex: 1, background: 'var(--accent-rose)', borderColor: 'var(--accent-rose)' }}
+              >
+                Yes, Delete Account
               </button>
             </div>
           </div>

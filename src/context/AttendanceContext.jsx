@@ -15,7 +15,7 @@ const generateInitialsAvatar = (name) => {
 };
 
 export const AttendanceProvider = ({ children }) => {
-  const PURGE_KEY = 'intime_purge_v9_advanced_features';
+  const PURGE_KEY = 'intime_purge_v10_blank_empid';
 
   // Theme mode ('light' | 'dark') - Light Mode by default!
   const [theme, setTheme] = useState(() => {
@@ -212,20 +212,59 @@ export const AttendanceProvider = ({ children }) => {
   const registerEmployee = (newEmpData) => {
     const cleanEmail = (newEmpData.email || '').trim().toLowerCase();
 
-    if (employees.some(e => e.email.toLowerCase() === cleanEmail)) {
+    if (employees.some(e => (e.email || '').toLowerCase() === cleanEmail)) {
       return { success: false, error: "An account with this email address already exists." };
     }
 
-    const finalAvatar = newEmpData.avatar || generateInitialsAvatar(newEmpData.name);
+    const fullName = newEmpData.name || `${newEmpData.firstName || ''} ${newEmpData.lastName || ''}`.trim() || 'Employee';
+    const finalAvatar = newEmpData.avatar || generateInitialsAvatar(fullName);
 
     const newProfile = {
-      id: `EMP-${Date.now()}`,
-      name: newEmpData.name,
-      email: newEmpData.email,
-      password: newEmpData.password || 'password123',
-      role: newEmpData.role || 'Software Engineer',
+      id: `USR_${Date.now()}`,
+      employeeId: newEmpData.employeeId || '',
+      name: fullName,
+      firstName: newEmpData.firstName || '',
+      middleName: newEmpData.middleName || '',
+      lastName: newEmpData.lastName || '',
+      department: newEmpData.department || '',
+      location: newEmpData.location || '',
+      employmentType: newEmpData.employmentType || '',
+      sourceOfHiring: newEmpData.sourceOfHiring || '',
+      dateOfJoining: newEmpData.dateOfJoining || '',
+      experience: newEmpData.experience || '',
+      reportingManager: newEmpData.reportingManager || '',
+      dob: newEmpData.dob || '',
+      age: newEmpData.age || '',
+      gender: newEmpData.gender || '',
+      maritalStatus: newEmpData.maritalStatus || '',
+      esign: newEmpData.esign || '',
+      uan: newEmpData.uan || '',
+      pan: newEmpData.pan || '',
+      aadhar: newEmpData.aadhar || '',
+      companyEmail: cleanEmail,
+      personalEmail: newEmpData.personalEmail || '',
+      companyPhoneNo: newEmpData.companyPhoneNo || '',
+      personalPhoneNo: newEmpData.personalPhoneNo || '',
+      currentAddress: newEmpData.currentAddress || '',
+      permanentAddress: newEmpData.permanentAddress || '',
+      contactLocation: newEmpData.contactLocation || newEmpData.location || '',
+      dependentName: newEmpData.dependentName || '',
+      dependentRelationship: newEmpData.dependentRelationship || '',
+      dependentDob: newEmpData.dependentDob || '',
+      emergencyContact: newEmpData.emergencyContact || '',
+      emergencyPhoneNo: newEmpData.emergencyPhoneNo || '',
+      emergencyRelationship: newEmpData.emergencyRelationship || '',
+      bankName: newEmpData.bankName || '',
+      accountNo: newEmpData.accountNo || '',
+      accountType: newEmpData.accountType || '',
+      ifscCode: newEmpData.ifscCode || '',
+      branchName: newEmpData.branchName || '',
+      accountHolderName: newEmpData.accountHolderName || '',
+      email: cleanEmail,
+      password: newEmpData.password || '',
+      role: newEmpData.role || newEmpData.department || 'Employee',
       workMode: newEmpData.workMode || 'Remote',
-      defaultCity: newEmpData.defaultCity || 'Bengaluru, Karnataka',
+      defaultCity: newEmpData.defaultCity || newEmpData.location || 'Bengaluru, Karnataka',
       avatar: finalAvatar,
       coordinates: { lat: 12.9716, lng: 77.5946 },
       roleType: 'EMPLOYEE'
@@ -442,6 +481,17 @@ export const AttendanceProvider = ({ children }) => {
     }));
   };
 
+  // Delete Employee Account (Admin Action)
+  const deleteEmployeeAccount = (employeeId) => {
+    setEmployees(prev => prev.filter(e => e.id !== employeeId));
+    setRecords(prev => prev.filter(r => r.employeeId !== employeeId));
+    setPayslips(prev => prev.filter(p => p.employeeId !== employeeId));
+    setDocuments(prev => prev.filter(d => d.employeeId !== employeeId));
+    setLeaves(prev => prev.filter(l => l.employeeId !== employeeId));
+    setWorkDiaries(prev => prev.filter(w => w.employeeId !== employeeId));
+    return { success: true };
+  };
+
   return (
     <AttendanceContext.Provider
       value={{
@@ -461,6 +511,7 @@ export const AttendanceProvider = ({ children }) => {
         registerEmployee,
         logout,
         clearAllData,
+        deleteEmployeeAccount,
         clockIn,
         clockOut,
         uploadPayslip,

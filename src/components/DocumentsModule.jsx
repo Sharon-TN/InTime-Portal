@@ -170,20 +170,7 @@ export default function DocumentsModule() {
                 />
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Category</label>
-                <select
-                  value={category}
-                  onChange={e => setCategory(e.target.value)}
-                  style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.65rem', borderRadius: 'var(--radius-sm)' }}
-                >
-                  <option value="Identity Proof">Identity Proof</option>
-                  <option value="Address Proof">Address Proof</option>
-                  <option value="Educational Certificate">Educational Certificate</option>
-                  <option value="Tax Document">Tax Document</option>
-                  <option value="Employment Contract">Employment Contract</option>
-                </select>
-              </div>
+
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Select File *</label>
