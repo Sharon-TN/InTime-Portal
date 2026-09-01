@@ -101,7 +101,90 @@ export const AttendanceProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Supabase Database Sync Logic
+  // Helper push functions for instant database writes
+  const saveEmployeeToSupabase = async (emp) => {
+    try {
+      if (!supabase) return;
+      await supabase.from('employees').upsert({
+        id: emp.id,
+        employee_id: emp.employeeId || '',
+        name: emp.name,
+        email: emp.email,
+        department: emp.department,
+        data: emp
+      });
+    } catch (e) {
+      console.warn("Supabase write employee notice:", e);
+    }
+  };
+
+  const saveRecordToSupabase = async (rec) => {
+    try {
+      if (!supabase) return;
+      await supabase.from('attendance_records').upsert({
+        id: rec.id,
+        employee_id: rec.employeeId,
+        date: rec.date,
+        data: rec
+      });
+    } catch (e) {
+      console.warn("Supabase write record notice:", e);
+    }
+  };
+
+  const savePayslipToSupabase = async (pay) => {
+    try {
+      if (!supabase) return;
+      await supabase.from('payslips').upsert({
+        id: pay.id,
+        employee_id: pay.employeeId,
+        data: pay
+      });
+    } catch (e) {
+      console.warn("Supabase write payslip notice:", e);
+    }
+  };
+
+  const saveDocumentToSupabase = async (doc) => {
+    try {
+      if (!supabase) return;
+      await supabase.from('documents').upsert({
+        id: doc.id,
+        employee_id: doc.employeeId,
+        data: doc
+      });
+    } catch (e) {
+      console.warn("Supabase write document notice:", e);
+    }
+  };
+
+  const saveLeaveToSupabase = async (leave) => {
+    try {
+      if (!supabase) return;
+      await supabase.from('leaves').upsert({
+        id: leave.id,
+        employee_id: leave.employeeId,
+        data: leave
+      });
+    } catch (e) {
+      console.warn("Supabase write leave notice:", e);
+    }
+  };
+
+  const saveWorkDiaryToSupabase = async (diary) => {
+    try {
+      if (!supabase) return;
+      await supabase.from('work_diaries').upsert({
+        id: diary.id,
+        employee_id: diary.employeeId,
+        data: diary
+      });
+    } catch (e) {
+      console.warn("Supabase write diary notice:", e);
+    }
+  };
+
+  // Sync with Supabase (pull down remote database records)
   const syncWithSupabase = async () => {
     try {
       if (!supabase) return;
@@ -206,6 +289,20 @@ export const AttendanceProvider = ({ children }) => {
     }
   };
 
+  // Push local storage profiles up to Supabase on load (for profiles created before table creation)
+  useEffect(() => {
+    if (employees && employees.length > 0) {
+      employees.forEach(emp => {
+        saveEmployeeToSupabase(emp);
+      });
+    }
+    if (records && records.length > 0) {
+      records.forEach(rec => {
+        saveRecordToSupabase(rec);
+      });
+    }
+  }, []);
+
   // Realtime Polling every 3 seconds for instant cross-device updates
   useEffect(() => {
     syncWithSupabase();
@@ -214,89 +311,6 @@ export const AttendanceProvider = ({ children }) => {
     }, 3000);
     return () => clearInterval(interval);
   }, []);
-
-  // Helper push functions for instant database writes
-  const saveEmployeeToSupabase = async (emp) => {
-    try {
-      if (!supabase) return;
-      await supabase.from('employees').upsert({
-        id: emp.id,
-        employee_id: emp.employeeId || '',
-        name: emp.name,
-        email: emp.email,
-        department: emp.department,
-        data: emp
-      });
-    } catch (e) {
-      console.warn("Supabase write employee notice:", e);
-    }
-  };
-
-  const saveRecordToSupabase = async (rec) => {
-    try {
-      if (!supabase) return;
-      await supabase.from('attendance_records').upsert({
-        id: rec.id,
-        employee_id: rec.employeeId,
-        date: rec.date,
-        data: rec
-      });
-    } catch (e) {
-      console.warn("Supabase write record notice:", e);
-    }
-  };
-
-  const savePayslipToSupabase = async (pay) => {
-    try {
-      if (!supabase) return;
-      await supabase.from('payslips').upsert({
-        id: pay.id,
-        employee_id: pay.employeeId,
-        data: pay
-      });
-    } catch (e) {
-      console.warn("Supabase write payslip notice:", e);
-    }
-  };
-
-  const saveDocumentToSupabase = async (doc) => {
-    try {
-      if (!supabase) return;
-      await supabase.from('documents').upsert({
-        id: doc.id,
-        employee_id: doc.employeeId,
-        data: doc
-      });
-    } catch (e) {
-      console.warn("Supabase write document notice:", e);
-    }
-  };
-
-  const saveLeaveToSupabase = async (leave) => {
-    try {
-      if (!supabase) return;
-      await supabase.from('leaves').upsert({
-        id: leave.id,
-        employee_id: leave.employeeId,
-        data: leave
-      });
-    } catch (e) {
-      console.warn("Supabase write leave notice:", e);
-    }
-  };
-
-  const saveWorkDiaryToSupabase = async (diary) => {
-    try {
-      if (!supabase) return;
-      await supabase.from('work_diaries').upsert({
-        id: diary.id,
-        employee_id: diary.employeeId,
-        data: diary
-      });
-    } catch (e) {
-      console.warn("Supabase write diary notice:", e);
-    }
-  };
 
   // Sync to local storage
   useEffect(() => {
