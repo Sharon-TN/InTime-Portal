@@ -4,6 +4,8 @@ import { getUserCoordinates, getAddressFromCoords, checkLateness } from '../util
 
 const AttendanceContext = createContext(null);
 
+const CLOUD_STORAGE_ID = 'ff808181a058d43f01a05c61e6120caa';
+
 // Helper to generate a clean SVG initials avatar if no photo uploaded
 const generateInitialsAvatar = (name) => {
   const initial = (name || 'E').trim().charAt(0).toUpperCase();
@@ -100,6 +102,126 @@ export const AttendanceProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : [];
   });
 
+  // Global Realtime Cloud DB Synchronization
+  const syncWithCloud = async () => {
+    try {
+      const response = await fetch(`https://api.restful-api.dev/objects/${CLOUD_STORAGE_ID}`);
+      if (!response.ok) return;
+      const json = await response.json();
+      if (json && json.data) {
+        const cloudEmps = json.data.employees || [];
+        const cloudRecs = json.data.records || [];
+        const cloudPayslips = json.data.payslips || [];
+        const cloudDocs = json.data.documents || [];
+        const cloudLeaves = json.data.leaves || [];
+        const cloudDiaries = json.data.workDiaries || [];
+
+        if (cloudEmps.length > 0) {
+          setEmployees(prev => {
+            const map = new Map();
+            prev.forEach(e => map.set(e.id || e.email, e));
+            cloudEmps.forEach(e => {
+              const key = e.id || e.email;
+              const existing = map.get(key) || {};
+              map.set(key, { ...existing, ...e });
+            });
+            const merged = Array.from(map.values());
+            localStorage.setItem('intime_employees', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (cloudRecs.length > 0) {
+          setRecords(prev => {
+            const map = new Map();
+            prev.forEach(r => map.set(r.id, r));
+            cloudRecs.forEach(r => map.set(r.id, r));
+            const merged = Array.from(map.values());
+            localStorage.setItem('intime_records', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (cloudPayslips.length > 0) {
+          setPayslips(prev => {
+            const map = new Map();
+            prev.forEach(p => map.set(p.id, p));
+            cloudPayslips.forEach(p => map.set(p.id, p));
+            const merged = Array.from(map.values());
+            localStorage.setItem('intime_payslips', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (cloudDocs.length > 0) {
+          setDocuments(prev => {
+            const map = new Map();
+            prev.forEach(d => map.set(d.id, d));
+            cloudDocs.forEach(d => map.set(d.id, d));
+            const merged = Array.from(map.values());
+            localStorage.setItem('intime_documents', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (cloudLeaves.length > 0) {
+          setLeaves(prev => {
+            const map = new Map();
+            prev.forEach(l => map.set(l.id, l));
+            cloudLeaves.forEach(l => map.set(l.id, l));
+            const merged = Array.from(map.values());
+            localStorage.setItem('intime_leaves', JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (cloudDiaries.length > 0) {
+          setWorkDiaries(prev => {
+            const map = new Map();
+            prev.forEach(w => map.set(w.id, w));
+            cloudDiaries.forEach(w => map.set(w.id, w));
+            const merged = Array.from(map.values());
+            localStorage.setItem('intime_work_diaries', JSON.stringify(merged));
+            return merged;
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("Cloud read sync notice:", err);
+    }
+  };
+
+  const pushToCloud = async (empList, recList, payList, docList, leaveList, diaryList) => {
+    try {
+      await fetch(`https://api.restful-api.dev/objects/${CLOUD_STORAGE_ID}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'intime_portal_master_v1',
+          data: {
+            employees: empList !== undefined ? empList : employees,
+            records: recList !== undefined ? recList : records,
+            payslips: payList !== undefined ? payList : payslips,
+            documents: docList !== undefined ? docList : documents,
+            leaves: leaveList !== undefined ? leaveList : leaves,
+            workDiaries: diaryList !== undefined ? diaryList : workDiaries
+          }
+        })
+      });
+    } catch (err) {
+      console.warn("Cloud write sync notice:", err);
+    }
+  };
+
+  // Poll cloud database every 4 seconds for real-time multi-device sync
+  useEffect(() => {
+    syncWithCloud();
+    const interval = setInterval(() => {
+      syncWithCloud();
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Auto-record Exit Time as Clock Out if user closes web app/tab without checking out
   useEffect(() => {
     const handleAppExit = () => {
@@ -123,6 +245,7 @@ export const AttendanceProvider = ({ children }) => {
           });
 
           localStorage.setItem('intime_records', JSON.stringify(updatedRecords));
+          pushToCloud(employees, updatedRecords, payslips, documents, leaves, workDiaries);
         }
       }
     };
@@ -131,7 +254,7 @@ export const AttendanceProvider = ({ children }) => {
     return () => {
       window.removeEventListener('beforeunload', handleAppExit);
     };
-  }, [currentUser, records]);
+  }, [currentUser, records, employees, payslips, documents, leaves, workDiaries]);
 
   // Sync to local storage
   useEffect(() => {
@@ -184,6 +307,7 @@ export const AttendanceProvider = ({ children }) => {
     localStorage.setItem('intime_documents', JSON.stringify([]));
     localStorage.setItem('intime_leaves', JSON.stringify([]));
     localStorage.setItem('intime_work_diaries', JSON.stringify([]));
+    pushToCloud([], [], [], [], [], []);
   };
 
   // Login handler
@@ -198,7 +322,7 @@ export const AttendanceProvider = ({ children }) => {
       return { success: false, error: "Invalid Admin email or password." };
     } else {
       const found = employees.find(
-        e => e.email.toLowerCase() === cleanEmail && (e.password === password || password === 'password123')
+        e => (e.email || '').toLowerCase() === cleanEmail && (e.password === password || password === 'password123')
       );
       if (found) {
         setCurrentUser(found);
@@ -270,7 +394,11 @@ export const AttendanceProvider = ({ children }) => {
       roleType: 'EMPLOYEE'
     };
 
-    setEmployees(prev => [...prev, newProfile]);
+    setEmployees(prev => {
+      const updated = [...prev, newProfile];
+      pushToCloud(updated, records, payslips, documents, leaves, workDiaries);
+      return updated;
+    });
     setCurrentUser(newProfile);
     return { success: true, user: newProfile };
   };
@@ -297,6 +425,7 @@ export const AttendanceProvider = ({ children }) => {
 
         setRecords(updatedRecords);
         localStorage.setItem('intime_records', JSON.stringify(updatedRecords));
+        pushToCloud(employees, updatedRecords, payslips, documents, leaves, workDiaries);
       }
     }
     setCurrentUser(null);
@@ -352,7 +481,11 @@ export const AttendanceProvider = ({ children }) => {
         accuracy: 10,
       };
 
-      setRecords(prev => [newRecord, ...prev]);
+      setRecords(prev => {
+        const updated = [newRecord, ...prev];
+        pushToCloud(employees, updated, payslips, documents, leaves, workDiaries);
+        return updated;
+      });
       return { success: true, record: newRecord };
     } catch (err) {
       console.error("Clock in failed:", err);
@@ -374,7 +507,7 @@ export const AttendanceProvider = ({ children }) => {
     const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
     const todayStr = now.toISOString().split('T')[0];
 
-    // If work diary submitted, record it
+    let newDiaries = workDiaries;
     if (workDiaryData) {
       const diaryRecord = {
         id: `WDIARY-${Date.now()}`,
@@ -387,23 +520,25 @@ export const AttendanceProvider = ({ children }) => {
         shiftNotes: workDiaryData.shiftNotes || '',
         submittedAt: timeString
       };
-      setWorkDiaries(prev => [diaryRecord, ...prev]);
+      newDiaries = [diaryRecord, ...workDiaries];
+      setWorkDiaries(newDiaries);
     }
 
-    setRecords(prev =>
-      prev.map(r => {
-        if (r.id === activeRec.id) {
-          return {
-            ...r,
-            clockOutTime: timeString,
-            clockOutIso: now.toISOString(),
-            status: 'CLOCK_OUT',
-            workDiarySubmitted: !!workDiaryData
-          };
-        }
-        return r;
-      })
-    );
+    const newRecords = records.map(r => {
+      if (r.id === activeRec.id) {
+        return {
+          ...r,
+          clockOutTime: timeString,
+          clockOutIso: now.toISOString(),
+          status: 'CLOCK_OUT',
+          workDiarySubmitted: !!workDiaryData
+        };
+      }
+      return r;
+    });
+
+    setRecords(newRecords);
+    pushToCloud(employees, newRecords, payslips, documents, leaves, newDiaries);
 
     return { success: true };
   };
@@ -423,12 +558,20 @@ export const AttendanceProvider = ({ children }) => {
       fileName: payslipData.fileName || `Payslip_${payslipData.month}_${payslipData.employeeName}.pdf`,
       fileData: payslipData.fileData || null
     };
-    setPayslips(prev => [newPayslip, ...prev]);
+    setPayslips(prev => {
+      const updated = [newPayslip, ...prev];
+      pushToCloud(employees, records, updated, documents, leaves, workDiaries);
+      return updated;
+    });
     return { success: true, payslip: newPayslip };
   };
 
   const deletePayslip = (id) => {
-    setPayslips(prev => prev.filter(p => p.id !== id));
+    setPayslips(prev => {
+      const updated = prev.filter(p => p.id !== id);
+      pushToCloud(employees, records, updated, documents, leaves, workDiaries);
+      return updated;
+    });
   };
 
   // Document Management
@@ -446,12 +589,20 @@ export const AttendanceProvider = ({ children }) => {
       uploadDate: new Date().toLocaleDateString(),
       status: 'Verified'
     };
-    setDocuments(prev => [newDoc, ...prev]);
+    setDocuments(prev => {
+      const updated = [newDoc, ...prev];
+      pushToCloud(employees, records, payslips, updated, leaves, workDiaries);
+      return updated;
+    });
     return { success: true, document: newDoc };
   };
 
   const deleteDocument = (id) => {
-    setDocuments(prev => prev.filter(d => d.id !== id));
+    setDocuments(prev => {
+      const updated = prev.filter(d => d.id !== id);
+      pushToCloud(employees, records, payslips, updated, leaves, workDiaries);
+      return updated;
+    });
   };
 
   // Leave Management
@@ -468,27 +619,44 @@ export const AttendanceProvider = ({ children }) => {
       status: 'PENDING',
       appliedOn: new Date().toLocaleDateString()
     };
-    setLeaves(prev => [newLeave, ...prev]);
+    setLeaves(prev => {
+      const updated = [newLeave, ...prev];
+      pushToCloud(employees, records, payslips, documents, updated, workDiaries);
+      return updated;
+    });
     return { success: true, leave: newLeave };
   };
 
   const updateLeaveStatus = (leaveId, newStatus, adminNote = '') => {
-    setLeaves(prev => prev.map(l => {
-      if (l.id === leaveId) {
-        return { ...l, status: newStatus, adminNote };
-      }
-      return l;
-    }));
+    setLeaves(prev => {
+      const updated = prev.map(l => {
+        if (l.id === leaveId) {
+          return { ...l, status: newStatus, adminNote };
+        }
+        return l;
+      });
+      pushToCloud(employees, records, payslips, documents, updated, workDiaries);
+      return updated;
+    });
   };
 
   // Delete Employee Account (Admin Action)
   const deleteEmployeeAccount = (employeeId) => {
-    setEmployees(prev => prev.filter(e => e.id !== employeeId));
-    setRecords(prev => prev.filter(r => r.employeeId !== employeeId));
-    setPayslips(prev => prev.filter(p => p.employeeId !== employeeId));
-    setDocuments(prev => prev.filter(d => d.employeeId !== employeeId));
-    setLeaves(prev => prev.filter(l => l.employeeId !== employeeId));
-    setWorkDiaries(prev => prev.filter(w => w.employeeId !== employeeId));
+    const newEmps = employees.filter(e => e.id !== employeeId);
+    const newRecs = records.filter(r => r.employeeId !== employeeId);
+    const newPays = payslips.filter(p => p.employeeId !== employeeId);
+    const newDocs = documents.filter(d => d.employeeId !== employeeId);
+    const newLevs = leaves.filter(l => l.employeeId !== employeeId);
+    const newWd = workDiaries.filter(w => w.employeeId !== employeeId);
+
+    setEmployees(newEmps);
+    setRecords(newRecs);
+    setPayslips(newPays);
+    setDocuments(newDocs);
+    setLeaves(newLevs);
+    setWorkDiaries(newWd);
+
+    pushToCloud(newEmps, newRecs, newPays, newDocs, newLevs, newWd);
     return { success: true };
   };
 
