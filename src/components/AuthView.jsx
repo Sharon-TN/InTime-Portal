@@ -144,14 +144,38 @@ export default function AuthView() {
         setErrorMsg("Please fill in all mandatory fields in Step 2 (Date of Birth, Gender, Marital Status, Digital Sign Upload, PAN Number, Aadhar Number).");
         return;
       }
+      if (pan.length !== 10) {
+        setErrorMsg("PAN Card Number must be exactly 10 characters (e.g. ABCDE1234F).");
+        return;
+      }
+      if (aadhar.length !== 12) {
+        setErrorMsg("Aadhar Card Number must be exactly 12 digits.");
+        return;
+      }
     } else if (regStep === 3) {
       if (!companyEmail.trim() || !personalEmail.trim() || !companyPhoneNo.trim() || !personalPhoneNo.trim() || !currentAddress.trim() || !permanentAddress.trim()) {
         setErrorMsg("Please fill in all mandatory fields in Step 3 (Company Email, Personal Email, Company Phone, Personal Phone, Current Address, Permanent Address).");
         return;
       }
+      if (companyPhoneNo.length !== 10) {
+        setErrorMsg("Company Phone Number must be exactly 10 digits.");
+        return;
+      }
+      if (personalPhoneNo.length !== 10) {
+        setErrorMsg("Personal Phone Number must be exactly 10 digits.");
+        return;
+      }
     } else if (regStep === 4) {
       if (!dependentName.trim() || !dependentRelationship.trim() || !emergencyContact.trim() || !emergencyPhoneNo.trim() || !bankName.trim() || !accountNo.trim() || !accountType.trim() || !ifscCode.trim() || !accountHolderName.trim()) {
         setErrorMsg("Please fill in all mandatory fields in Step 4 (Dependent Name & Relation, Emergency Contact & Phone, Bank Name, Account Number, Account Type, IFSC Code, Account Holder Name).");
+        return;
+      }
+      if (emergencyPhoneNo.length !== 10) {
+        setErrorMsg("Emergency Phone Number must be exactly 10 digits.");
+        return;
+      }
+      if (ifscCode.length !== 11) {
+        setErrorMsg("IFSC Code must be exactly 11 characters (e.g. HDFC0001234).");
         return;
       }
     }
@@ -583,12 +607,12 @@ export default function AuthView() {
                     <input type="email" placeholder="personal@gmail.com" value={personalEmail} onChange={e => setPersonalEmail(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Company Phone No. *</label>
-                    <input type="text" placeholder="+91 9876543210" value={companyPhoneNo} onChange={e => setCompanyPhoneNo(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Company Phone No. * (10 Digits Only)</label>
+                    <input type="text" placeholder="9876543210" value={companyPhoneNo} onChange={e => setCompanyPhoneNo(e.target.value.replace(/\D/g, '').slice(0, 10))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Personal Phone No. *</label>
-                    <input type="text" placeholder="+91 9876543210" value={personalPhoneNo} onChange={e => setPersonalPhoneNo(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Personal Phone No. * (10 Digits Only)</label>
+                    <input type="text" placeholder="9876543210" value={personalPhoneNo} onChange={e => setPersonalPhoneNo(e.target.value.replace(/\D/g, '').slice(0, 10))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                   <div style={{ gridColumn: 'span 2' }}>
                     <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Current Address *</label>
@@ -622,32 +646,32 @@ export default function AuthView() {
                   
                   {/* Dependent Info */}
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-cyan)', marginBottom: '0.25rem' }}>Dependent Name *</label>
-                    <input type="text" placeholder="Dependent Full Name" value={dependentName} onChange={e => setDependentName(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-cyan)', marginBottom: '0.25rem' }}>Dependent Name * (Letters Only)</label>
+                    <input type="text" placeholder="Dependent Full Name" value={dependentName} onChange={e => setDependentName(e.target.value.replace(/[0-9]/g, ''))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-cyan)', marginBottom: '0.25rem' }}>Dependent Relationship *</label>
-                    <input type="text" placeholder="Spouse / Child / Parent" value={dependentRelationship} onChange={e => setDependentRelationship(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-cyan)', marginBottom: '0.25rem' }}>Dependent Relationship * (Letters Only)</label>
+                    <input type="text" placeholder="Spouse / Child / Parent" value={dependentRelationship} onChange={e => setDependentRelationship(e.target.value.replace(/[0-9]/g, ''))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
 
                   {/* Emergency Info */}
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-rose)', marginBottom: '0.25rem' }}>Emergency Contact Name *</label>
-                    <input type="text" placeholder="Emergency Person Name" value={emergencyContact} onChange={e => setEmergencyContact(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-rose)', marginBottom: '0.25rem' }}>Emergency Contact Name * (Letters Only)</label>
+                    <input type="text" placeholder="Emergency Person Name" value={emergencyContact} onChange={e => setEmergencyContact(e.target.value.replace(/[0-9]/g, ''))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-rose)', marginBottom: '0.25rem' }}>Emergency Phone No. *</label>
-                    <input type="text" placeholder="+91 9876543210" value={emergencyPhoneNo} onChange={e => setEmergencyPhoneNo(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-rose)', marginBottom: '0.25rem' }}>Emergency Phone No. * (10 Digits Only)</label>
+                    <input type="text" placeholder="9876543210" value={emergencyPhoneNo} onChange={e => setEmergencyPhoneNo(e.target.value.replace(/\D/g, '').slice(0, 10))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
 
                   {/* Bank Info */}
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-emerald)', marginBottom: '0.25rem' }}>Bank Name *</label>
-                    <input type="text" placeholder="e.g. HDFC Bank" value={bankName} onChange={e => setBankName(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-emerald)', marginBottom: '0.25rem' }}>Bank Name * (Letters Only)</label>
+                    <input type="text" placeholder="e.g. HDFC Bank" value={bankName} onChange={e => setBankName(e.target.value.replace(/[0-9]/g, ''))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-emerald)', marginBottom: '0.25rem' }}>Account Number *</label>
-                    <input type="text" placeholder="e.g. 50100234567890" value={accountNo} onChange={e => setAccountNo(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-emerald)', marginBottom: '0.25rem' }}>Account Number * (Numbers Only)</label>
+                    <input type="text" placeholder="e.g. 50100234567890" value={accountNo} onChange={e => setAccountNo(e.target.value.replace(/\D/g, ''))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-emerald)', marginBottom: '0.25rem' }}>A/C Type *</label>
@@ -658,12 +682,12 @@ export default function AuthView() {
                     </select>
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-emerald)', marginBottom: '0.25rem' }}>IFSC Code *</label>
-                    <input type="text" placeholder="e.g. HDFC0001234" value={ifscCode} onChange={e => setIfscCode(e.target.value.toUpperCase())} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-emerald)', marginBottom: '0.25rem' }}>IFSC Code * (Uppercase & Numbers)</label>
+                    <input type="text" placeholder="e.g. HDFC0001234" value={ifscCode} onChange={e => setIfscCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                   <div style={{ gridColumn: 'span 2' }}>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-emerald)', marginBottom: '0.25rem' }}>A/C Holder Name (As per bank records) *</label>
-                    <input type="text" placeholder="Full name registered with bank" value={accountHolderName} onChange={e => setAccountHolderName(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-emerald)', marginBottom: '0.25rem' }}>A/C Holder Name * (Letters Only)</label>
+                    <input type="text" placeholder="Full name registered with bank" value={accountHolderName} onChange={e => setAccountHolderName(e.target.value.replace(/[0-9]/g, ''))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                 </div>
               )}
