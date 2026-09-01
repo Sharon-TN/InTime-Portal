@@ -449,15 +449,15 @@ export default function AuthView() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>First Name *</label>
-                    <input type="text" placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
+                    <input type="text" placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value.replace(/[0-9]/g, ''))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Middle Name (Optional)</label>
-                    <input type="text" placeholder="Middle Name" value={middleName} onChange={e => setMiddleName(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} />
+                    <input type="text" placeholder="Middle Name" value={middleName} onChange={e => setMiddleName(e.target.value.replace(/[0-9]/g, ''))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Last Name *</label>
-                    <input type="text" placeholder="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
+                    <input type="text" placeholder="Last Name" value={lastName} onChange={e => setLastName(e.target.value.replace(/[0-9]/g, ''))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Department *</label>
@@ -475,7 +475,7 @@ export default function AuthView() {
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Work Location *</label>
-                    <input type="text" placeholder="e.g. Bengaluru, Karnataka" value={location} onChange={e => setLocation(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
+                    <input type="text" placeholder="e.g. Bengaluru, Karnataka" value={location} onChange={e => setLocation(e.target.value.replace(/[0-9]/g, ''))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Employment Type *</label>
@@ -489,14 +489,14 @@ export default function AuthView() {
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Source of Hiring *</label>
-                    <input type="text" placeholder="Direct / Referral / Campus" value={sourceOfHiring} onChange={e => setSourceOfHiring(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
+                    <input type="text" placeholder="Direct / Referral / Campus" value={sourceOfHiring} onChange={e => setSourceOfHiring(e.target.value.replace(/[0-9]/g, ''))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Date of Joining *</label>
                     <input type="date" value={dateOfJoining} onChange={e => setDateOfJoining(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                   <div style={{ gridColumn: 'span 2' }}>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Experience *</label>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Experience * (Accepts Numbers & Letters)</label>
                     <input type="text" placeholder="e.g. 2.5 Years" value={experience} onChange={e => setExperience(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                 </div>
@@ -510,8 +510,8 @@ export default function AuthView() {
                     <input type="date" value={dob} onChange={e => handleDobChange(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Age *</label>
-                    <input type="number" placeholder="Age" value={age} onChange={e => setAge(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Age * (Numbers Only)</label>
+                    <input type="text" placeholder="Age" value={age} onChange={e => setAge(e.target.value.replace(/\D/g, ''))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Gender *</label>
@@ -558,15 +558,15 @@ export default function AuthView() {
 
                   <div>
                     <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>UAN Number (12 Digits) (Optional)</label>
-                    <input type="text" placeholder="e.g. 100987654321" value={uan} onChange={e => setUan(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} />
+                    <input type="text" placeholder="e.g. 100987654321" value={uan} onChange={e => setUan(e.target.value.replace(/\D/g, '').slice(0, 12))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>PAN Card Number *</label>
-                    <input type="text" placeholder="e.g. ABCDE1234F" value={pan} onChange={e => setPan(e.target.value.toUpperCase())} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>PAN Card Number * (Uppercase & Numbers)</label>
+                    <input type="text" placeholder="e.g. ABCDE1234F" value={pan} onChange={e => setPan(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                   <div style={{ gridColumn: 'span 2' }}>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Aadhar Card Number *</label>
-                    <input type="text" placeholder="e.g. 1234 5678 9012" value={aadhar} onChange={e => setAadhar(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Aadhar Card Number * (Numbers Only, Max 12 Digits)</label>
+                    <input type="text" placeholder="e.g. 123456789012" value={aadhar} onChange={e => setAadhar(e.target.value.replace(/\D/g, '').slice(0, 12))} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required />
                   </div>
                 </div>
               )}
