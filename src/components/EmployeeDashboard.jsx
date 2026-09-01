@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAttendance } from '../context/AttendanceContext';
 import LiveClock from './LiveClock';
-import LiveMap from './LiveMap';
 import AttendanceLogTable from './AttendanceLogTable';
 import ClockInCameraModal from './ClockInCameraModal';
 import WorkDiaryModal from './WorkDiaryModal';
@@ -348,18 +347,6 @@ export default function EmployeeDashboard() {
               <span>Location Geotag Status</span>
               <span style={{ color: 'var(--accent-emerald)', fontWeight: 700 }}>● GPS Ready</span>
             </div>
-          </div>
-
-          {/* Live Map Card */}
-          <div className="glass-card" style={{ padding: '1.75rem', borderRadius: 'var(--radius-lg)' }}>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Navigation size={18} style={{ color: 'var(--primary)' }} />
-              <span>Live GPS Geofence Verification</span>
-            </h3>
-            <LiveMap
-              activeRecord={currentUserTodayRecord}
-              defaultCoords={currentUser?.coordinates || { lat: 12.9716, lng: 77.5946 }}
-            />
           </div>
 
         </div>

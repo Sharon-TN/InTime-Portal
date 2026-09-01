@@ -292,7 +292,7 @@ export default function AdminDashboard() {
             <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '1.25rem' }}>
               Live Multi-Employee GPS Map
             </h3>
-            <LiveMap activeRecord={null} records={records} defaultCoords={{ lat: 12.9716, lng: 77.5946 }} />
+            <LiveMap activeRecords={records} employees={employees} defaultCoords={{ lat: 12.9716, lng: 77.5946 }} />
           </div>
         </div>
       )}
