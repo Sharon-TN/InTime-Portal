@@ -80,36 +80,70 @@ export default function AuthView() {
     }
   };
 
-  // Handle local profile image file upload
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setErrorMsg("Profile picture size should be less than 5MB.");
-        return;
-      }
+  // Helper to compress uploaded images via Canvas to prevent browser storage quota errors
+  const compressImage = (file, maxWidth = 300, maxHeight = 300, quality = 0.7) => {
+    return new Promise((resolve) => {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarPreview(reader.result);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+          if (width > maxWidth || height > maxHeight) {
+            if (width > height) {
+              height = Math.round((height * maxHeight) / width);
+              width = maxWidth;
+            } else {
+              width = Math.round((width * maxWidth) / height);
+              height = maxHeight;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => resolve(event.target.result);
+        img.src = event.target.result;
       };
       reader.readAsDataURL(file);
+    });
+  };
+
+  // Handle local profile image file upload with instant compression
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        setErrorMsg("Profile picture size should be less than 10MB.");
+        return;
+      }
+      try {
+        const compressed = await compressImage(file, 250, 250, 0.7);
+        setAvatarPreview(compressed);
+      } catch (err) {
+        console.error("Avatar compression error:", err);
+      }
     }
   };
 
-  // Handle E-Sign digital signature image upload
-  const handleEsignUpload = (e) => {
+  // Handle E-Sign digital signature image upload with instant compression
+  const handleEsignUpload = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setErrorMsg("Digital signature image size should be less than 5MB.");
+      if (file.size > 10 * 1024 * 1024) {
+        setErrorMsg("Digital signature image size should be less than 10MB.");
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEsign(reader.result);
-        setEsignPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImage(file, 300, 150, 0.7);
+        setEsign(compressed);
+        setEsignPreview(compressed);
+      } catch (err) {
+        console.error("Signature compression error:", err);
+      }
     }
   };
 

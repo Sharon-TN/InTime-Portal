@@ -15,18 +15,38 @@ const generateInitialsAvatar = (name) => {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 };
 
+// Helper to safely set localStorage without crashing the app on QuotaExceededError
+const safeSetLocalStorage = (key, value) => {
+  try {
+    const stringified = typeof value === 'string' ? value : JSON.stringify(value);
+    localStorage.setItem(key, stringified);
+  } catch (err) {
+    console.warn(`localStorage quota exceeded for key "${key}". Cloud sync continues safely.`, err);
+    if (err && (err.name === 'QuotaExceededError' || err.code === 22)) {
+      try {
+        localStorage.removeItem('intime_employees');
+        localStorage.removeItem('intime_records');
+      } catch (e) {}
+    }
+  }
+};
+
 export const AttendanceProvider = ({ children }) => {
-  const PURGE_KEY = 'intime_purge_v12_supabase_rls_fix';
+  const PURGE_KEY = 'intime_purge_v14_storage_quota_fix';
 
   // Theme mode ('light' | 'dark') - Light Mode by default!
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('intime_theme') || 'light';
+    try {
+      return localStorage.getItem('intime_theme') || 'light';
+    } catch (e) {
+      return 'light';
+    }
   });
 
   // Apply theme to document root element
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('intime_theme', theme);
+    safeSetLocalStorage('intime_theme', theme);
   }, [theme]);
 
   const toggleTheme = () => {
@@ -34,19 +54,23 @@ export const AttendanceProvider = ({ children }) => {
   };
 
   const [employees, setEmployees] = useState(() => {
-    if (!localStorage.getItem(PURGE_KEY)) {
-      localStorage.removeItem('intime_employees');
-      localStorage.removeItem('intime_records');
-      localStorage.removeItem('intime_user');
-      localStorage.removeItem('intime_payslips');
-      localStorage.removeItem('intime_documents');
-      localStorage.removeItem('intime_leaves');
-      localStorage.removeItem('intime_work_diaries');
-      localStorage.setItem(PURGE_KEY, 'true');
-      return [];
+    try {
+      if (!localStorage.getItem(PURGE_KEY)) {
+        localStorage.removeItem('intime_employees');
+        localStorage.removeItem('intime_records');
+        localStorage.removeItem('intime_user');
+        localStorage.removeItem('intime_payslips');
+        localStorage.removeItem('intime_documents');
+        localStorage.removeItem('intime_leaves');
+        localStorage.removeItem('intime_work_diaries');
+        safeSetLocalStorage(PURGE_KEY, 'true');
+        return [];
+      }
+      const saved = localStorage.getItem('intime_employees');
+      return saved ? JSON.parse(saved) : INITIAL_EMPLOYEES;
+    } catch (e) {
+      return INITIAL_EMPLOYEES;
     }
-    const saved = localStorage.getItem('intime_employees');
-    return saved ? JSON.parse(saved) : INITIAL_EMPLOYEES;
   });
 
   const [records, setRecords] = useState(() => {
@@ -209,7 +233,7 @@ export const AttendanceProvider = ({ children }) => {
             map.set(item.id || item.email, item);
           });
           const merged = Array.from(map.values());
-          localStorage.setItem('intime_employees', JSON.stringify(merged));
+          safeSetLocalStorage('intime_employees', merged);
           return merged;
         });
       }
@@ -225,7 +249,7 @@ export const AttendanceProvider = ({ children }) => {
             map.set(item.id, item);
           });
           const merged = Array.from(map.values());
-          localStorage.setItem('intime_records', JSON.stringify(merged));
+          safeSetLocalStorage('intime_records', merged);
           return merged;
         });
       }
@@ -241,7 +265,7 @@ export const AttendanceProvider = ({ children }) => {
             map.set(item.id, item);
           });
           const merged = Array.from(map.values());
-          localStorage.setItem('intime_payslips', JSON.stringify(merged));
+          safeSetLocalStorage('intime_payslips', merged);
           return merged;
         });
       }
@@ -257,7 +281,7 @@ export const AttendanceProvider = ({ children }) => {
             map.set(item.id, item);
           });
           const merged = Array.from(map.values());
-          localStorage.setItem('intime_documents', JSON.stringify(merged));
+          safeSetLocalStorage('intime_documents', merged);
           return merged;
         });
       }
@@ -273,7 +297,7 @@ export const AttendanceProvider = ({ children }) => {
             map.set(item.id, item);
           });
           const merged = Array.from(map.values());
-          localStorage.setItem('intime_leaves', JSON.stringify(merged));
+          safeSetLocalStorage('intime_leaves', merged);
           return merged;
         });
       }
@@ -289,7 +313,7 @@ export const AttendanceProvider = ({ children }) => {
             map.set(item.id, item);
           });
           const merged = Array.from(map.values());
-          localStorage.setItem('intime_work_diaries', JSON.stringify(merged));
+          safeSetLocalStorage('intime_work_diaries', merged);
           return merged;
         });
       }
@@ -321,41 +345,41 @@ export const AttendanceProvider = ({ children }) => {
     return () => clearInterval(interval);
   }, []);
 
-  // Sync to local storage
+  // Sync to local storage safely
   useEffect(() => {
-    localStorage.setItem('intime_employees', JSON.stringify(employees));
+    safeSetLocalStorage('intime_employees', employees);
   }, [employees]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem('intime_user', JSON.stringify(currentUser));
+      safeSetLocalStorage('intime_user', currentUser);
     } else {
       localStorage.removeItem('intime_user');
     }
   }, [currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('intime_records', JSON.stringify(records));
+    safeSetLocalStorage('intime_records', records);
   }, [records]);
 
   useEffect(() => {
-    localStorage.setItem('intime_shift_policy', JSON.stringify(shiftPolicy));
+    safeSetLocalStorage('intime_shift_policy', shiftPolicy);
   }, [shiftPolicy]);
 
   useEffect(() => {
-    localStorage.setItem('intime_payslips', JSON.stringify(payslips));
+    safeSetLocalStorage('intime_payslips', payslips);
   }, [payslips]);
 
   useEffect(() => {
-    localStorage.setItem('intime_documents', JSON.stringify(documents));
+    safeSetLocalStorage('intime_documents', documents);
   }, [documents]);
 
   useEffect(() => {
-    localStorage.setItem('intime_leaves', JSON.stringify(leaves));
+    safeSetLocalStorage('intime_leaves', leaves);
   }, [leaves]);
 
   useEffect(() => {
-    localStorage.setItem('intime_work_diaries', JSON.stringify(workDiaries));
+    safeSetLocalStorage('intime_work_diaries', workDiaries);
   }, [workDiaries]);
 
   // Clear all data (Admin Action)
