@@ -48,9 +48,9 @@ export default function AdminDashboard() {
     setEmpToDeleteConfirm(emp);
   };
 
-  const confirmDeleteEmployee = () => {
+  const confirmDeleteEmployee = async () => {
     if (empToDeleteConfirm) {
-      deleteEmployeeAccount(empToDeleteConfirm.id);
+      await deleteEmployeeAccount(empToDeleteConfirm.id || empToDeleteConfirm.employeeId || empToDeleteConfirm.email);
       setEmpToDeleteConfirm(null);
     }
   };

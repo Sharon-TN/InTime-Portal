@@ -244,87 +244,72 @@ export const AttendanceProvider = ({ children }) => {
       // 1. Sync Employees
       const { data: emps, error: empErr } = await supabase.from('employees').select('*');
       if (empErr) console.error("Sync Employees Error:", empErr);
-      if (emps && emps.length > 0) {
-        setEmployees(prev => {
-          const map = new Map();
-          prev.forEach(e => map.set(e.id || e.email, e));
-          emps.forEach(row => {
-            const item = row.data ? { ...row.data, id: row.id, employeeId: row.employee_id || row.data.employeeId } : row;
-            map.set(item.id || item.email, item);
-          });
-          const merged = Array.from(map.values());
-          safeSetLocalStorage('intime_employees', merged);
-          return merged;
+      if (!empErr && emps !== null) {
+        const cloudMap = new Map();
+        emps.forEach(row => {
+          const item = row.data ? { ...row.data, id: row.id, employeeId: row.employee_id || row.data.employeeId } : row;
+          cloudMap.set(item.id || item.email, item);
         });
+        const cloudEmps = Array.from(cloudMap.values());
+        setEmployees(cloudEmps);
+        safeSetLocalStorage('intime_employees', cloudEmps);
       }
 
       // 2. Sync Records
       const { data: recs } = await supabase.from('attendance_records').select('*');
-      if (recs && recs.length > 0) {
-        setRecords(prev => {
-          const map = new Map();
-          prev.forEach(r => map.set(r.id, r));
-          recs.forEach(row => {
-            const item = row.data ? { ...row.data, id: row.id } : row;
-            map.set(item.id, item);
-          });
-          const merged = Array.from(map.values());
-          safeSetLocalStorage('intime_records', merged);
-          return merged;
+      if (recs !== null) {
+        const cloudMap = new Map();
+        recs.forEach(row => {
+          const item = row.data ? { ...row.data, id: row.id } : row;
+          cloudMap.set(item.id, item);
         });
+        const cloudRecs = Array.from(cloudMap.values());
+        setRecords(cloudRecs);
+        safeSetLocalStorage('intime_records', cloudRecs);
       }
 
       // 3. Sync Payslips
       const { data: pays } = await supabase.from('payslips').select('*');
-      if (pays && pays.length > 0) {
-        setPayslips(prev => {
-          const map = new Map();
-          prev.forEach(p => map.set(p.id, p));
-          pays.forEach(row => {
-            const item = row.data ? { ...row.data, id: row.id } : row;
-            map.set(item.id, item);
-          });
-          const merged = Array.from(map.values());
-          safeSetLocalStorage('intime_payslips', merged);
-          return merged;
+      if (pays !== null) {
+        const cloudMap = new Map();
+        pays.forEach(row => {
+          const item = row.data ? { ...row.data, id: row.id } : row;
+          cloudMap.set(item.id, item);
         });
+        const cloudPays = Array.from(cloudMap.values());
+        setPayslips(cloudPays);
+        safeSetLocalStorage('intime_payslips', cloudPays);
       }
 
       // 4. Sync Documents
       const { data: docs } = await supabase.from('documents').select('*');
-      if (docs && docs.length > 0) {
-        setDocuments(prev => {
-          const map = new Map();
-          prev.forEach(d => map.set(d.id, d));
-          docs.forEach(row => {
-            const item = row.data ? { ...row.data, id: row.id } : row;
-            map.set(item.id, item);
-          });
-          const merged = Array.from(map.values());
-          safeSetLocalStorage('intime_documents', merged);
-          return merged;
+      if (docs !== null) {
+        const cloudMap = new Map();
+        docs.forEach(row => {
+          const item = row.data ? { ...row.data, id: row.id } : row;
+          cloudMap.set(item.id, item);
         });
+        const cloudDocs = Array.from(cloudMap.values());
+        setDocuments(cloudDocs);
+        safeSetLocalStorage('intime_documents', cloudDocs);
       }
 
       // 5. Sync Leaves
       const { data: levs } = await supabase.from('leaves').select('*');
-      if (levs && levs.length > 0) {
-        setLeaves(prev => {
-          const map = new Map();
-          prev.forEach(l => map.set(l.id, l));
-          levs.forEach(row => {
-            const item = row.data ? { ...row.data, id: row.id } : row;
-            map.set(item.id, item);
-          });
-          const merged = Array.from(map.values());
-          safeSetLocalStorage('intime_leaves', merged);
-          return merged;
+      if (levs !== null) {
+        const cloudMap = new Map();
+        levs.forEach(row => {
+          const item = row.data ? { ...row.data, id: row.id } : row;
+          cloudMap.set(item.id, item);
         });
+        const cloudLevs = Array.from(cloudMap.values());
+        setLeaves(cloudLevs);
+        safeSetLocalStorage('intime_leaves', cloudLevs);
       }
 
       // 6. Sync Work Diaries
       const { data: diaries } = await supabase.from('work_diaries').select('*');
-      if (diaries && diaries.length > 0) {
+      if (diaries !== null) {
         const policyRow = diaries.find(d => d.id === 'SYSTEM_SHIFT_POLICY');
         if (policyRow && policyRow.data) {
           setShiftPolicy(policyRow.data);
@@ -332,17 +317,14 @@ export const AttendanceProvider = ({ children }) => {
         }
 
         const validDiaries = diaries.filter(d => d.id !== 'SYSTEM_SHIFT_POLICY');
-        setWorkDiaries(prev => {
-          const map = new Map();
-          prev.forEach(w => map.set(w.id, w));
-          validDiaries.forEach(row => {
-            const item = row.data ? { ...row.data, id: row.id } : row;
-            map.set(item.id, item);
-          });
-          const merged = Array.from(map.values());
-          safeSetLocalStorage('intime_work_diaries', merged);
-          return merged;
+        const cloudMap = new Map();
+        validDiaries.forEach(row => {
+          const item = row.data ? { ...row.data, id: row.id } : row;
+          cloudMap.set(item.id, item);
         });
+        const cloudDiaries = Array.from(cloudMap.values());
+        setWorkDiaries(cloudDiaries);
+        safeSetLocalStorage('intime_work_diaries', cloudDiaries);
       }
     } catch (err) {
       console.warn("Supabase read notice:", err);
@@ -753,26 +735,54 @@ export const AttendanceProvider = ({ children }) => {
     }));
   };
 
-  // Delete Employee Account
+  // Permanent Delete Employee Account across Cloud Database & Local Storage
   const deleteEmployeeAccount = async (employeeId) => {
-    setEmployees(prev => prev.filter(e => e.id !== employeeId));
-    setRecords(prev => prev.filter(r => r.employeeId !== employeeId));
-    setPayslips(prev => prev.filter(p => p.employeeId !== employeeId));
-    setDocuments(prev => prev.filter(d => d.employeeId !== employeeId));
-    setLeaves(prev => prev.filter(l => l.employeeId !== employeeId));
-    setWorkDiaries(prev => prev.filter(w => w.employeeId !== employeeId));
+    const targetEmp = employees.find(e => e.id === employeeId || e.employeeId === employeeId || e.email === employeeId);
+    const empId = targetEmp?.id || employeeId;
+    const empCustomId = targetEmp?.employeeId;
+    const empEmail = targetEmp?.email;
 
+    const isMatch = (val) => {
+      if (!val) return false;
+      return val === empId || val === empCustomId || val === empEmail;
+    };
+
+    // 1. Remove from React State immediately
+    setEmployees(prev => prev.filter(e => !isMatch(e.id) && !isMatch(e.employeeId) && !isMatch(e.email)));
+    setRecords(prev => prev.filter(r => !isMatch(r.employeeId)));
+    setPayslips(prev => prev.filter(p => !isMatch(p.employeeId)));
+    setDocuments(prev => prev.filter(d => !isMatch(d.employeeId)));
+    setLeaves(prev => prev.filter(l => !isMatch(l.employeeId)));
+    setWorkDiaries(prev => prev.filter(w => !isMatch(w.employeeId)));
+
+    // 2. Immediately purge from localStorage cache so sync won't pick up stale entries
+    const updatedEmployees = employees.filter(e => !isMatch(e.id) && !isMatch(e.employeeId) && !isMatch(e.email));
+    safeSetLocalStorage('intime_employees', updatedEmployees);
+
+    // 3. If currently logged in user is deleted, log them out
+    if (currentUser && isMatch(currentUser.id || currentUser.employeeId || currentUser.email)) {
+      setCurrentUser(null);
+      localStorage.removeItem('intime_user');
+    }
+
+    // 4. Permanently delete from Supabase across all database tables
     try {
       if (supabase) {
-        await supabase.from('employees').delete().eq('id', employeeId);
-        await supabase.from('attendance_records').delete().eq('employee_id', employeeId);
-        await supabase.from('payslips').delete().eq('employee_id', employeeId);
-        await supabase.from('documents').delete().eq('employee_id', employeeId);
-        await supabase.from('leaves').delete().eq('employee_id', employeeId);
-        await supabase.from('work_diaries').delete().eq('employee_id', employeeId);
+        if (empId) await supabase.from('employees').delete().eq('id', empId);
+        if (empEmail) await supabase.from('employees').delete().eq('email', empEmail);
+        if (empCustomId) await supabase.from('employees').delete().eq('employee_id', empCustomId);
+
+        const keysToDelete = [empId, empCustomId, empEmail].filter(Boolean);
+        for (const k of keysToDelete) {
+          await supabase.from('attendance_records').delete().eq('employee_id', k);
+          await supabase.from('payslips').delete().eq('employee_id', k);
+          await supabase.from('documents').delete().eq('employee_id', k);
+          await supabase.from('leaves').delete().eq('employee_id', k);
+          await supabase.from('work_diaries').delete().eq('employee_id', k);
+        }
       }
     } catch (e) {
-      console.warn("Delete emp notice:", e);
+      console.warn("Delete employee error:", e);
     }
     return { success: true };
   };
