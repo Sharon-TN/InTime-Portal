@@ -216,6 +216,26 @@ export const AttendanceProvider = ({ children }) => {
     }
   };
 
+  const saveShiftPolicyToSupabase = async (policy) => {
+    try {
+      if (!supabase) return;
+      const { error } = await supabase.from('work_diaries').upsert({
+        id: 'SYSTEM_SHIFT_POLICY',
+        employee_id: 'SYSTEM',
+        data: policy
+      });
+      if (error) console.error("Supabase Policy Upsert Error:", error);
+    } catch (e) {
+      console.warn("Supabase write policy notice:", e);
+    }
+  };
+
+  const updateShiftPolicy = (newPolicy) => {
+    setShiftPolicy(newPolicy);
+    safeSetLocalStorage('intime_shift_policy', newPolicy);
+    saveShiftPolicyToSupabase(newPolicy);
+  };
+
   // Sync with Supabase (pull down remote database records)
   const syncWithSupabase = async () => {
     try {
@@ -305,10 +325,17 @@ export const AttendanceProvider = ({ children }) => {
       // 6. Sync Work Diaries
       const { data: diaries } = await supabase.from('work_diaries').select('*');
       if (diaries && diaries.length > 0) {
+        const policyRow = diaries.find(d => d.id === 'SYSTEM_SHIFT_POLICY');
+        if (policyRow && policyRow.data) {
+          setShiftPolicy(policyRow.data);
+          safeSetLocalStorage('intime_shift_policy', policyRow.data);
+        }
+
+        const validDiaries = diaries.filter(d => d.id !== 'SYSTEM_SHIFT_POLICY');
         setWorkDiaries(prev => {
           const map = new Map();
           prev.forEach(w => map.set(w.id, w));
-          diaries.forEach(row => {
+          validDiaries.forEach(row => {
             const item = row.data ? { ...row.data, id: row.id } : row;
             map.set(item.id, item);
           });
@@ -759,7 +786,8 @@ export const AttendanceProvider = ({ children }) => {
         employees,
         records,
         shiftPolicy,
-        setShiftPolicy,
+        setShiftPolicy: updateShiftPolicy,
+        updateShiftPolicy,
         currentUserTodayRecord,
         payslips,
         documents,
