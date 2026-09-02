@@ -80,7 +80,7 @@ export default function AventiqEmployeeDetailsModule() {
           <tbody>
             ${employees.map(emp => `
               <tr class="data-cell">
-                <td>${emp.employeeId || (emp.id && !emp.id.startsWith('USR_') && !emp.id.startsWith('EMP-') ? emp.id : '')}</td>
+                <td style="mso-number-format:'\\@';">${emp.employeeId || (emp.id && !emp.id.startsWith('USR_') && !emp.id.startsWith('EMP-') ? emp.id : '')}</td>
                 <td>${emp.firstName || (emp.name ? emp.name.split(' ')[0] : '')}</td>
                 <td>${emp.middleName || ''}</td>
                 <td>${emp.lastName || (emp.name ? emp.name.split(' ').slice(1).join(' ') : '')}</td>
@@ -96,13 +96,13 @@ export default function AventiqEmployeeDetailsModule() {
                 <td>${emp.gender || ''}</td>
                 <td>${emp.maritalStatus || ''}</td>
                 <td>${emp.esign && emp.esign.startsWith('data:') ? 'Signature Uploaded' : (emp.esign || '')}</td>
-                <td>${emp.uan || ''}</td>
-                <td>${emp.pan || ''}</td>
-                <td>${emp.aadhar || ''}</td>
+                <td style="mso-number-format:'\\@';">${emp.uan && String(emp.uan).trim() ? String(emp.uan).trim() : ''}</td>
+                <td style="mso-number-format:'\\@';">${emp.pan ? String(emp.pan).trim() : ''}</td>
+                <td style="mso-number-format:'\\@';">${emp.aadhar ? String(emp.aadhar).trim() : ''}</td>
                 <td>${emp.companyEmail || emp.email || ''}</td>
                 <td>${emp.personalEmail || ''}</td>
-                <td>${emp.companyPhoneNo || ''}</td>
-                <td>${emp.personalPhoneNo || ''}</td>
+                <td style="mso-number-format:'\\@';">${emp.companyPhoneNo ? String(emp.companyPhoneNo).trim() : ''}</td>
+                <td style="mso-number-format:'\\@';">${emp.personalPhoneNo ? String(emp.personalPhoneNo).trim() : ''}</td>
                 <td>${emp.currentAddress || ''}</td>
                 <td>${emp.permanentAddress || ''}</td>
                 <td>${emp.contactLocation || emp.location || ''}</td>
@@ -110,12 +110,12 @@ export default function AventiqEmployeeDetailsModule() {
                 <td>${emp.dependentRelationship || ''}</td>
                 <td>${emp.dependentDob || ''}</td>
                 <td>${emp.emergencyContact || ''}</td>
-                <td>${emp.emergencyPhoneNo || ''}</td>
+                <td style="mso-number-format:'\\@';">${emp.emergencyPhoneNo ? String(emp.emergencyPhoneNo).trim() : ''}</td>
                 <td>${emp.emergencyRelationship || ''}</td>
                 <td>${emp.bankName || ''}</td>
-                <td>${emp.accountNo || ''}</td>
+                <td style="mso-number-format:'\\@';">${emp.accountNo ? String(emp.accountNo).trim() : ''}</td>
                 <td>${emp.accountType || ''}</td>
-                <td>${emp.ifscCode || ''}</td>
+                <td style="mso-number-format:'\\@';">${emp.ifscCode ? String(emp.ifscCode).trim() : ''}</td>
                 <td>${emp.branchName || ''}</td>
                 <td>${emp.accountHolderName || ''}</td>
               </tr>
