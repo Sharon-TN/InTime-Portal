@@ -21,7 +21,8 @@ export default function EmployeeDashboard() {
     records,
     shiftPolicy,
     clockIn,
-    clockOut
+    clockOut,
+    logout
   } = useAttendance();
 
   const [activeTab, setActiveTab] = useState('TERMINAL'); // 'TERMINAL' | 'DIARY' | 'LEAVES' | 'PAYSLIPS' | 'DOCUMENTS' | 'HISTORY'
@@ -73,6 +74,9 @@ export default function EmployeeDashboard() {
       const res = await clockOut(workDiaryData);
       if (!res.success) {
         setError(res.error || 'Failed to clock out');
+      } else {
+        // Automatically clock out from session & sign out from account for that day
+        logout();
       }
     } catch (err) {
       setError('An unexpected error occurred during clock out.');
