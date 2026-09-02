@@ -21,56 +21,88 @@ export default function WorkDiaryReviewModule() {
       .trim();
   };
 
-  // 100% Reliable Excel CSV Export with Text-Formatted Dates & Safe Async Download
-  const exportToExcelCSV = () => {
+  // Download formatted Excel Spreadsheet matching Aventiq template with auto-expanded spacious columns
+  const exportToExcelFormatted = () => {
     if (visibleDiaries.length === 0) {
       alert('No work diary entries available to export.');
       return;
     }
 
     try {
-      const headers = [
-        'Employee Name',
-        'Date',
-        'Submission Time',
-        'Completed Tasks & Action Items',
-        'Key Accomplishments',
-        'Tomorrow Objectives'
-      ];
+      const excelHtml = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+          <meta charset="utf-8"/>
+          <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Work Diaries</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+          <style>
+            table { border-collapse: collapse; font-family: Arial, sans-serif; font-size: 11pt; table-layout: fixed; width: 100%; }
+            th, td { border: 1px solid #C0C0C0; padding: 8px 12px; vertical-align: top; text-align: left; }
+            .row-yellow { background-color: #FFFF00; font-weight: bold; text-align: center; font-size: 11pt; color: #000000; }
+            .row-green { background-color: #336600; color: #FFFFFF; font-weight: bold; font-size: 10pt; }
+            .data-cell { font-size: 10pt; mso-number-format:"\\@"; white-space: normal; word-wrap: break-word; }
+            .col-name { width: 220px; }
+            .col-date { width: 130px; }
+            .col-time { width: 140px; }
+            .col-tasks { width: 450px; }
+            .col-accomplish { width: 350px; }
+            .col-objectives { width: 350px; }
+          </style>
+        </head>
+        <body>
+          <table>
+            <colgroup>
+              <col class="col-name" />
+              <col class="col-date" />
+              <col class="col-time" />
+              <col class="col-tasks" />
+              <col class="col-accomplish" />
+              <col class="col-objectives" />
+            </colgroup>
+            <thead>
+              <tr class="row-yellow">
+                <th colSpan="6">Daily Work Diaries & Activity Log</th>
+              </tr>
+              <tr class="row-green">
+                <th class="col-name">Employee Name</th>
+                <th class="col-date">Date</th>
+                <th class="col-time">Submission Time</th>
+                <th class="col-tasks">Completed Tasks & Action Items</th>
+                <th class="col-accomplish">Key Accomplishments</th>
+                <th class="col-objectives">Tomorrow Objectives</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${visibleDiaries.map(d => {
+                const dateFormatted = formatDateDDMMYYYY(d.date) || d.date || '';
+                return `
+                  <tr class="data-cell">
+                    <td style="mso-number-format:'\\@';">${d.employeeName || ''}</td>
+                    <td style="mso-number-format:'\\@';">${dateFormatted}</td>
+                    <td style="mso-number-format:'\\@';">${d.submittedAt || ''}</td>
+                    <td style="mso-number-format:'\\@'; white-space: normal; word-wrap: break-word;">${d.completedTasks || ''}</td>
+                    <td style="mso-number-format:'\\@'; white-space: normal; word-wrap: break-word;">${d.keyAccomplishments || ''}</td>
+                    <td style="mso-number-format:'\\@'; white-space: normal; word-wrap: break-word;">${d.tomorrowObjectives || ''}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `;
 
-      const rows = visibleDiaries.map(d => {
-        const dateFormatted = formatDateDDMMYYYY(d.date) || d.date || '';
-        return [
-          `"${cleanCellText(d.employeeName)}"`,
-          `="${dateFormatted}"`, // Excel formula string syntax forcing literal text rendering to prevent ########
-          `"${cleanCellText(d.submittedAt)}"`,
-          `"${cleanCellText(d.completedTasks)}"`,
-          `"${cleanCellText(d.keyAccomplishments)}"`,
-          `"${cleanCellText(d.tomorrowObjectives)}"`
-        ];
-      });
-
-      // Include UTF-8 Byte Order Mark (\uFEFF) for Excel text encoding recognition
-      const csvString = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-      const fileName = `InTime_Work_Diaries_${new Date().toISOString().split('T')[0]}.csv`;
-
-      // Trigger browser file download safely
-      const url = URL.createObjectURL(blob);
+      const blob = new Blob([excelHtml], { type: 'application/vnd.ms-excel' });
+      const fileName = `InTime_Work_Diaries_${new Date().toISOString().split('T')[0]}.xls`;
       const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', fileName);
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
       document.body.appendChild(link);
       link.click();
-
-      // Delay revocation so browser finishes writing file without network errors
       setTimeout(() => {
         if (document.body.contains(link)) {
           document.body.removeChild(link);
         }
-        URL.revokeObjectURL(url);
       }, 1000);
-
     } catch (err) {
       console.error("Export error:", err);
       alert("Unable to generate Excel file: " + err.message);
@@ -95,13 +127,13 @@ export default function WorkDiaryReviewModule() {
         {/* Excel Export Action Button */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <button
-            onClick={exportToExcelCSV}
+            onClick={exportToExcelFormatted}
             className="btn-secondary"
             style={{ fontSize: '0.85rem', borderColor: 'var(--accent-emerald)', color: 'var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.08)', cursor: 'pointer' }}
-            title="Download clean CSV file directly readable in Microsoft Excel"
+            title="Download formatted Excel spreadsheet with spacious, auto-wrapping columns"
           >
             <Download size={16} />
-            <span>Export to Excel (.CSV)</span>
+            <span>Export to Excel (.XLS)</span>
           </button>
         </div>
       </div>
