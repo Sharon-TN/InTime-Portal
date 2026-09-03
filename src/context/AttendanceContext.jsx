@@ -545,24 +545,28 @@ export const AttendanceProvider = ({ children }) => {
   ) : null;
 
   // Clock In Action
-  const clockIn = async (workMode = 'Remote', overrideCoords = null, capturedPhoto = null) => {
+  const clockIn = async (workMode = 'Remote', overrideCoords = null, capturedPhoto = null, customAddress = null) => {
     if (!currentUser) return { success: false, error: "Must be logged in to clock in." };
 
     try {
       let coords = overrideCoords;
-      let addressName = "";
+      let addressName = customAddress || "";
 
       if (!coords) {
         try {
           const geo = await getUserCoordinates();
           coords = { lat: geo.lat, lng: geo.lng };
-          addressName = await getAddressFromCoords(geo.lat, geo.lng);
+          if (!addressName) {
+            addressName = await getAddressFromCoords(geo.lat, geo.lng);
+          }
         } catch (geoError) {
           console.warn("Location fallback used:", geoError.message);
           coords = currentUser.coordinates || { lat: 12.9716, lng: 77.5946 };
-          addressName = currentUser.defaultCity + " (GPS Captured)";
+          if (!addressName) {
+            addressName = currentUser.defaultCity + " (GPS Captured)";
+          }
         }
-      } else {
+      } else if (!addressName) {
         addressName = await getAddressFromCoords(coords.lat, coords.lng);
       }
 

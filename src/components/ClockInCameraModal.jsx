@@ -33,7 +33,7 @@ export default function ClockInCameraModal({ onConfirm, onClose, workMode }) {
       }
     }
 
-    async function initLocation() {
+    async function fetchFreshLocation() {
       try {
         setLoadingGeo(true);
         const geo = await getUserCoordinates();
@@ -49,7 +49,7 @@ export default function ClockInCameraModal({ onConfirm, onClose, workMode }) {
     }
 
     initCamera();
-    initLocation();
+    fetchFreshLocation();
 
     return () => {
       if (activeStream) {
@@ -57,6 +57,20 @@ export default function ClockInCameraModal({ onConfirm, onClose, workMode }) {
       }
     };
   }, []);
+
+  const handleRefetchLocation = async () => {
+    try {
+      setLoadingGeo(true);
+      const geo = await getUserCoordinates();
+      setCoords({ lat: geo.lat, lng: geo.lng });
+      const addrName = await getAddressFromCoords(geo.lat, geo.lng);
+      setAddress(addrName);
+    } catch (err) {
+      console.warn("Location refresh error:", err);
+    } finally {
+      setLoadingGeo(false);
+    }
+  };
 
   // Capture photo from video stream
   const capturePhoto = () => {
@@ -80,7 +94,7 @@ export default function ClockInCameraModal({ onConfirm, onClose, workMode }) {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
     }
-    onConfirm(photo, coords);
+    onConfirm(photo, coords, address);
   };
 
   return (
@@ -105,7 +119,7 @@ export default function ClockInCameraModal({ onConfirm, onClose, workMode }) {
               <span>Camera & Geotag Verification</span>
             </h3>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Selfie & live GPS coordinates required for Clock In
+              Selfie & live GPS location address required for Clock In
             </p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
@@ -114,7 +128,7 @@ export default function ClockInCameraModal({ onConfirm, onClose, workMode }) {
         </div>
 
         {/* Camera Feed or Captured Photo */}
-        <div style={{ position: 'relative', width: '100%', height: '280px', background: '#000000', borderRadius: 'var(--radius-md)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--border-color)' }}>
+        <div style={{ position: 'relative', width: '100%', height: '260px', background: '#000000', borderRadius: 'var(--radius-md)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--border-color)' }}>
           {cameraError ? (
             <div style={{ color: 'var(--accent-rose)', padding: '1.5rem', textAlign: 'center', fontSize: '0.88rem' }}>
               <AlertCircle size={32} style={{ marginBottom: '0.5rem' }} />
@@ -171,21 +185,50 @@ export default function ClockInCameraModal({ onConfirm, onClose, workMode }) {
           <canvas ref={canvasRef} style={{ display: 'none' }} />
         </div>
 
-        {/* Live GPS Geotag Info */}
-        <div style={{ background: 'var(--bg-input)', padding: '0.85rem 1.1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', marginTop: '1.25rem', display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-          <MapPin size={20} style={{ color: 'var(--accent-rose)', flexShrink: 0, marginTop: '2px' }} />
-          <div>
-            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Captured Geotag Location ({workMode})
+        {/* Live GPS Geotag Info & Editable Address Input */}
+        <div style={{ background: 'var(--bg-input)', padding: '0.85rem 1.1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', marginTop: '1.1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <MapPin size={14} style={{ color: 'var(--accent-rose)' }} />
+              <span>Verified Geotag Location ({workMode})</span>
             </div>
-            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '2px' }}>
-              {loadingGeo ? "Fetching exact GPS street address..." : address}
-            </div>
+            <button
+              type="button"
+              onClick={handleRefetchLocation}
+              disabled={loadingGeo}
+              style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+              title="Refresh GPS location coordinates"
+            >
+              <RefreshCw size={12} className={loadingGeo ? 'animate-spin' : ''} />
+              <span>{loadingGeo ? 'Detecting...' : 'Refetch GPS'}</span>
+            </button>
+          </div>
+          
+          <input
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            disabled={loadingGeo}
+            placeholder="Fetching exact street address..."
+            style={{
+              width: '100%',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-main)',
+              padding: '0.45rem 0.75rem',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              outline: 'none'
+            }}
+          />
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', marginTop: '0.25rem' }}>
+            Verify or refine your current address if GPS IP-location misidentifies your exact building/flat.
           </div>
         </div>
 
         {/* Confirmation Actions */}
-        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
           <button type="button" onClick={onClose} className="btn-secondary" style={{ flex: 1 }}>
             Cancel
           </button>
@@ -193,7 +236,7 @@ export default function ClockInCameraModal({ onConfirm, onClose, workMode }) {
             type="button"
             onClick={handleFinalSubmit}
             className="btn-primary"
-            disabled={!photo && !cameraError}
+            disabled={(!photo && !cameraError) || loadingGeo}
             style={{ flex: 1.5, background: 'var(--accent-emerald)', borderColor: 'var(--accent-emerald)' }}
           >
             <Check size={18} />

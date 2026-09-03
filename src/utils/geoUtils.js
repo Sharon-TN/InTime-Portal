@@ -2,13 +2,20 @@
  * Geolocation & Time Utilities for InTime Smart Attendance
  */
 
-// Request browser high-accuracy geolocation coordinates
+// Request browser high-accuracy geolocation coordinates with fallback
 export const getUserCoordinates = () => {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error("Geolocation is not supported by your browser."));
       return;
     }
+
+    // High accuracy option with generous timeout
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    };
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -20,21 +27,31 @@ export const getUserCoordinates = () => {
         });
       },
       (error) => {
-        let msg = "Unable to retrieve your location.";
-        if (error.code === error.PERMISSION_DENIED) {
-          msg = "Location access was denied. Please enable location permissions in your browser.";
-        } else if (error.code === error.POSITION_UNAVAILABLE) {
-          msg = "High-accuracy location is currently unavailable.";
-        } else if (error.code === error.TIMEOUT) {
-          msg = "Location request timed out.";
-        }
-        reject(new Error(msg));
+        // Fallback retry with enableHighAccuracy: false if hardware GPS times out
+        navigator.geolocation.getCurrentPosition(
+          (posFallback) => {
+            resolve({
+              lat: posFallback.coords.latitude,
+              lng: posFallback.coords.longitude,
+              accuracy: Math.round(posFallback.coords.accuracy),
+              timestamp: posFallback.timestamp
+            });
+          },
+          (errFallback) => {
+            let msg = "Unable to retrieve your location.";
+            if (error.code === error.PERMISSION_DENIED) {
+              msg = "Location access was denied. Please enable location permissions in your browser.";
+            } else if (error.code === error.POSITION_UNAVAILABLE) {
+              msg = "High-accuracy location is currently unavailable.";
+            } else if (error.code === error.TIMEOUT) {
+              msg = "Location request timed out.";
+            }
+            reject(new Error(msg));
+          },
+          { enableHighAccuracy: false, timeout: 8000 }
+        );
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0
-      }
+      options
     );
   });
 };
@@ -56,24 +73,26 @@ export const getAddressFromCoords = async (lat, lng) => {
     if (data && data.address) {
       const addr = data.address;
       
-      const specificSpot = addr.amenity || addr.building || addr.road || "";
-      const area = addr.suburb || addr.neighbourhood || addr.residential || addr.quarter || addr.subdistrict || "";
+      const buildingOrSpot = addr.building || addr.amenity || addr.office || addr.shop || addr.house_number ? `No. ${addr.house_number}` : "";
+      const road = addr.road || addr.pedestrian || addr.street || "";
+      const colonyOrSuburb = addr.suburb || addr.neighbourhood || addr.residential || addr.quarter || addr.subdistrict || "";
       const city = addr.city || addr.town || addr.municipality || addr.district || addr.county || addr.village || "";
       const state = addr.state || addr.state_district || "";
-      const pincode = addr.postcode ? ` (${addr.postcode})` : "";
+      const pincode = addr.postcode ? `(${addr.postcode})` : "";
 
-      const locationParts = [specificSpot, area, city, state].filter(Boolean);
+      const spotRoad = [buildingOrSpot, road].filter(Boolean).join(" ");
+      const locationParts = [spotRoad, colonyOrSuburb, city, state].filter(Boolean);
       const uniqueParts = [...new Set(locationParts)];
 
       if (uniqueParts.length > 0) {
-        return `${uniqueParts.join(", ")}${pincode}`;
+        return `${uniqueParts.join(", ")} ${pincode}`.trim();
       }
 
       return data.display_name;
     }
     return `${lat.toFixed(5)}°, ${lng.toFixed(5)}°`;
   } catch (err) {
-    console.warn("Reverse geocoding error:", err);
+    console.warn("Reverse geocoding notice:", err);
     return `${lat.toFixed(5)}°, ${lng.toFixed(5)}°`;
   }
 };
