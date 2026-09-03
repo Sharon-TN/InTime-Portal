@@ -791,6 +791,9 @@ export const AttendanceProvider = ({ children }) => {
     return { success: true };
   };
 
+  // Modal control state for employee profile modal
+  const [showProfileModal, setShowProfileModal] = useState(false);
+
   return (
     <AttendanceContext.Provider
       value={{
@@ -807,6 +810,8 @@ export const AttendanceProvider = ({ children }) => {
         documents,
         leaves,
         workDiaries,
+        showProfileModal,
+        setShowProfileModal,
         login,
         registerEmployee,
         logout,

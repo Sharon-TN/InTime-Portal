@@ -24,6 +24,8 @@ export default function EmployeeDashboard() {
     clockIn,
     clockOut,
     deleteEmployeeAccount,
+    showProfileModal,
+    setShowProfileModal,
     logout
   } = useAttendance();
 
@@ -36,7 +38,6 @@ export default function EmployeeDashboard() {
   // Modals state
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [showDiaryModal, setShowDiaryModal] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
 
   const isClockedIn = !!currentUserTodayRecord;
@@ -151,28 +152,6 @@ export default function EmployeeDashboard() {
                 <span className={`status-badge ${isClockedIn ? 'status-in' : 'status-out'}`}>
                   {isClockedIn ? 'ACTIVE SHIFT' : 'OFF DUTY'}
                 </span>
-
-                {/* Profile View Badge Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowProfileModal(true)}
-                  style={{
-                    background: 'rgba(99, 102, 241, 0.12)',
-                    border: '1px solid var(--primary)',
-                    color: 'var(--primary)',
-                    padding: '0.2rem 0.6rem',
-                    borderRadius: '9999px',
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem'
-                  }}
-                >
-                  <User size={12} />
-                  <span>My Profile</span>
-                </button>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.25rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
@@ -451,7 +430,7 @@ export default function EmployeeDashboard() {
         <div style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(0, 0, 0, 0.8)',
+          background: 'rgba(0, 0, 0, 0.85)',
           backdropFilter: 'blur(8px)',
           display: 'flex',
           alignItems: 'center',
@@ -459,114 +438,237 @@ export default function EmployeeDashboard() {
           zIndex: 99999,
           padding: '1rem'
         }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', borderRadius: 'var(--radius-lg)' }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '720px', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', borderRadius: 'var(--radius-lg)' }}>
             
             {/* Profile Modal Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
                 <img
                   src={currentUser?.avatar}
                   alt={currentUser?.name}
-                  style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary)' }}
+                  style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)' }}
                 />
                 <div>
-                  <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                  <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
                     {currentUser?.name}
                   </h3>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    {currentUser?.role || 'Software Engineer'} • {currentUser?.department || 'Engineering'}
+                  <div style={{ fontSize: '0.88rem', color: 'var(--accent-cyan)', fontWeight: 700, marginTop: '0.2rem' }}>
+                    {currentUser?.role || 'Employee'} • ID: {currentUser?.employeeId || currentUser?.id || 'N/A'}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    Department: {currentUser?.department || 'N/A'} | Location: {currentUser?.location || currentUser?.defaultCity || 'N/A'}
                   </div>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowProfileModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.4rem' }}
               >
-                <X size={22} />
+                <X size={24} />
               </button>
             </div>
 
-            {/* Profile Information List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {/* Profile Information Categorized Sections */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div style={{ background: 'var(--bg-input)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <Mail size={13} style={{ color: 'var(--primary)' }} /> Email Address
-                  </div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.2rem', wordBreak: 'break-all' }}>
-                    {currentUser?.email || currentUser?.companyEmail || 'N/A'}
-                  </div>
+              {/* SECTION 1: WORK & EMPLOYMENT DETAILS */}
+              <div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Building size={16} /> 1. Work & Employment Information
                 </div>
-
-                <div style={{ background: 'var(--bg-input)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <Phone size={13} style={{ color: 'var(--primary)' }} /> Contact Phone
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Employee ID</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.employeeId || currentUser?.id || 'N/A'}</div>
                   </div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.2rem' }}>
-                    {currentUser?.companyPhoneNo || currentUser?.phone || 'Not Provided'}
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Full Name</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{[currentUser?.firstName, currentUser?.middleName, currentUser?.lastName].filter(Boolean).join(' ') || currentUser?.name || 'N/A'}</div>
                   </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div style={{ background: 'var(--bg-input)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <Building size={13} style={{ color: 'var(--primary)' }} /> Department / Location
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Department</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.department || 'N/A'}</div>
                   </div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.2rem' }}>
-                    {currentUser?.department || 'Engineering'} ({currentUser?.defaultCity || 'Bengaluru'})
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Work Location</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.location || currentUser?.defaultCity || 'N/A'}</div>
                   </div>
-                </div>
-
-                <div style={{ background: 'var(--bg-input)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <Clock size={13} style={{ color: 'var(--primary)' }} /> Shift Schedule
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Employment Type</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.employmentType || 'Full-Time'}</div>
                   </div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.2rem' }}>
-                    {formatTime12Hour(shiftPolicy.startTime)} - {formatTime12Hour(shiftPolicy.endTime)}
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Source of Hiring</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.sourceOfHiring || 'N/A'}</div>
                   </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div style={{ background: 'var(--bg-input)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <Hash size={13} style={{ color: 'var(--primary)' }} /> Aadhaar Card No.
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Date of Joining</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.dateOfJoining || 'N/A'}</div>
                   </div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.2rem' }}>
-                    {currentUser?.aadhar || 'Not Provided'}
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Experience</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.experience || 'N/A'}</div>
                   </div>
-                </div>
-
-                <div style={{ background: 'var(--bg-input)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <CreditCard size={13} style={{ color: 'var(--primary)' }} /> Bank Account No.
-                  </div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.2rem' }}>
-                    {currentUser?.bankAccount || currentUser?.bankAccountNo || 'Not Provided'}
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Reporting Manager</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.reportingManager || 'N/A'}</div>
                   </div>
                 </div>
               </div>
 
-              <div style={{ background: 'var(--bg-input)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <Hash size={13} style={{ color: 'var(--primary)' }} /> UAN Number (Optional)
+              {/* SECTION 2: PERSONAL & IDENTITY DETAILS */}
+              <div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--accent-cyan)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <User size={16} /> 2. Personal & Identity Details
                 </div>
-                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.2rem' }}>
-                  {currentUser?.uan ? currentUser.uan : 'Not Provided'}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Date of Birth (DOB)</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.dob || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Age</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.age || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Gender</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.gender || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Marital Status</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.maritalStatus || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Aadhaar Card No.</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.aadhar || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>PAN Card No.</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.pan || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>UAN Number</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.uan || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>E-Signature</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--accent-emerald)', marginTop: '0.15rem' }}>
+                      {currentUser?.esign ? (currentUser.esign.startsWith('data:') ? '✅ Signature Uploaded' : currentUser.esign) : 'N/A'}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Danger Zone: Employee Account Deletion Button */}
-              <div style={{ marginTop: '1rem', padding: '1.25rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: 'var(--radius-md)', border: '1px solid var(--accent-rose)' }}>
+              {/* SECTION 3: CONTACT & ADDRESS DETAILS */}
+              <div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--accent-emerald)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Mail size={16} /> 3. Contact & Residential Details
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Company Email</div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem', wordBreak: 'break-all' }}>{currentUser?.companyEmail || currentUser?.email || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Personal Email</div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem', wordBreak: 'break-all' }}>{currentUser?.personalEmail || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Company Phone No.</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.companyPhoneNo || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Personal Phone No.</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.personalPhoneNo || currentUser?.phone || 'N/A'}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.75rem' }}>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Current Address</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', marginTop: '0.15rem', lineHeight: 1.3 }}>{currentUser?.currentAddress || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Permanent Address</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', marginTop: '0.15rem', lineHeight: 1.3 }}>{currentUser?.permanentAddress || 'N/A'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 4: DEPENDENT & EMERGENCY CONTACT */}
+              <div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--accent-amber)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Phone size={16} /> 4. Dependent & Emergency Information
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Dependent Name</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.dependentName || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Dependent Relationship</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.dependentRelationship || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Dependent DOB</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.dependentDob || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Emergency Contact Person</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.emergencyContact || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Emergency Phone No.</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.emergencyPhoneNo || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Emergency Relationship</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.emergencyRelationship || 'N/A'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 5: BANK ACCOUNT DETAILS */}
+              <div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#8B5CF6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <CreditCard size={16} /> 5. Bank Account Information
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Bank Name</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.bankName || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Account Number</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.accountNo || currentUser?.bankAccount || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Account Type</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.accountType || 'Savings'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>IFSC Code</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.ifscCode || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Branch Name</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.branchName || 'N/A'}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Account Holder Name</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.accountHolderName || currentUser?.name || 'N/A'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Danger Zone: Employee Self-Account Deletion */}
+              <div style={{ marginTop: '0.5rem', padding: '1.25rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: 'var(--radius-md)', border: '1px solid var(--accent-rose)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-rose)', fontWeight: 800, fontSize: '0.95rem' }}>
                   <ShieldAlert size={18} />
-                  <span>Account Management & Danger Zone</span>
+                  <span>Account Danger Zone & Deletion</span>
                 </div>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.35rem', marginBottom: '1rem', lineHeight: 1.4 }}>
-                  If you leave the company or wish to remove your account, clicking Delete Account will permanently purge your profile, attendance history, payslips, and work diaries.
+                  Clicking Delete Account will permanently purge your profile, attendance history, payslips, leaves, and work diaries from the portal.
                 </p>
                 <button
                   type="button"

@@ -4,7 +4,7 @@ import LiveClock from './LiveClock';
 import { Clock, LogOut, Sun, Moon } from 'lucide-react';
 
 export default function Header() {
-  const { currentUser, logout, theme, toggleTheme } = useAttendance();
+  const { currentUser, logout, theme, toggleTheme, setShowProfileModal } = useAttendance();
 
   const isAdmin = currentUser?.roleType === 'ADMIN';
 
@@ -34,9 +34,29 @@ export default function Header() {
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
 
-        {/* Logged in User Badge */}
+        {/* Logged in User Badge (Clickable for Employee Profile) */}
         {currentUser && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', background: 'var(--bg-input)', padding: '0.4rem 0.85rem', borderRadius: '9999px', border: '1px solid var(--border-color)', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+          <div
+            onClick={() => {
+              if (!isAdmin) {
+                setShowProfileModal(true);
+              }
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.65rem',
+              background: 'var(--bg-input)',
+              padding: '0.4rem 0.85rem',
+              borderRadius: '9999px',
+              border: '1px solid var(--border-color)',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+              cursor: !isAdmin ? 'pointer' : 'default',
+              transition: 'all 0.2s ease',
+              userSelect: 'none'
+            }}
+            title={!isAdmin ? "Click to view full Employee Profile" : "Logged in as Admin Manager"}
+          >
             {!isAdmin && currentUser.avatar && (
               <img
                 src={currentUser.avatar}
