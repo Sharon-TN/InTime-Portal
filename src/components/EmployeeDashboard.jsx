@@ -441,47 +441,57 @@ export default function EmployeeDashboard() {
           <div className="glass-card" style={{ width: '100%', maxWidth: '720px', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', borderRadius: 'var(--radius-lg)' }}>
             
             {/* Profile Modal Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-                <img
-                  src={currentUser?.avatar}
-                  alt={currentUser?.name}
-                  style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)' }}
-                />
-                <div>
-                  <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-                    {currentUser?.name}
-                  </h3>
-                  <div style={{ fontSize: '0.88rem', color: 'var(--accent-cyan)', fontWeight: 700, marginTop: '0.2rem' }}>
-                    {currentUser?.role || 'Employee'} • ID: {currentUser?.employeeId || currentUser?.id || 'N/A'}
+            {(() => {
+              const displayEmpId = (currentUser?.employeeId && !currentUser.employeeId.startsWith('USR_') && !currentUser.employeeId.startsWith('EMP-'))
+                ? currentUser.employeeId
+                : (currentUser?.id && !currentUser.id.startsWith('USR_') && !currentUser.id.startsWith('EMP-'))
+                  ? currentUser.id
+                  : '';
+              return (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                      <img
+                        src={currentUser?.avatar}
+                        alt={currentUser?.name}
+                        style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)' }}
+                      />
+                      <div>
+                        <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+                          {currentUser?.name}
+                        </h3>
+                        <div style={{ fontSize: '0.88rem', color: 'var(--accent-cyan)', fontWeight: 700, marginTop: '0.2rem' }}>
+                          {currentUser?.role || 'Employee'}{displayEmpId ? ` • ID: ${displayEmpId}` : ''}
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          Department: {currentUser?.department || 'N/A'} | Location: {currentUser?.location || currentUser?.defaultCity || 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowProfileModal(false)}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.4rem' }}
+                    >
+                      <X size={24} />
+                    </button>
                   </div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    Department: {currentUser?.department || 'N/A'} | Location: {currentUser?.location || currentUser?.defaultCity || 'N/A'}
-                  </div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowProfileModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.4rem' }}
-              >
-                <X size={24} />
-              </button>
-            </div>
 
-            {/* Profile Information Categorized Sections */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              
-              {/* SECTION 1: WORK & EMPLOYMENT DETAILS */}
-              <div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <Building size={16} /> 1. Work & Employment Information
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
-                  <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Employee ID</div>
-                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{currentUser?.employeeId || currentUser?.id || 'N/A'}</div>
-                  </div>
+                  {/* Profile Information Categorized Sections */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    
+                    {/* SECTION 1: WORK & EMPLOYMENT DETAILS */}
+                    <div>
+                      <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <Building size={16} /> 1. Work & Employment Information
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                        <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Employee ID</div>
+                          <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>
+                            {displayEmpId}
+                          </div>
+                        </div>
                   <div style={{ background: 'var(--bg-input)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)' }}>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700 }}>Full Name</div>
                     <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.15rem' }}>{[currentUser?.firstName, currentUser?.middleName, currentUser?.lastName].filter(Boolean).join(' ') || currentUser?.name || 'N/A'}</div>
@@ -708,6 +718,9 @@ export default function EmployeeDashboard() {
               </button>
             </div>
 
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
