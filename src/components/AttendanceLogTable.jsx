@@ -4,7 +4,8 @@ import { getGoogleMapsUrl, formatDateDDMMYYYY, formatWorkDurationHHMM } from '..
 import { useAttendance } from '../context/AttendanceContext';
 
 export default function AttendanceLogTable({ records = [], employees = [], title = "Attendance Logs" }) {
-  const { deleteAttendanceRecord } = useAttendance();
+  const { currentUser, deleteAttendanceRecord } = useAttendance();
+  const isAdmin = currentUser?.roleType === 'ADMIN';
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState('ALL'); // ALL | Remote | Office
   const [filterStatus, setFilterStatus] = useState('ALL'); // ALL | ON_TIME | LATE
@@ -114,7 +115,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
               <th>Work Duration (HH:MM)</th>
               <th>Status</th>
               <th>Location Address</th>
-              <th style={{ textAlign: 'center' }}>Action</th>
+              {isAdmin && <th style={{ textAlign: 'center' }}>Action</th>}
             </tr>
           </thead>
           <tbody>
@@ -273,38 +274,40 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                       </div>
                     </td>
 
-                    {/* Delete Log Action Button */}
-                    <td style={{ textAlign: 'center' }}>
-                      <button
-                        type="button"
-                        onClick={() => setRecordToDelete(record)}
-                        style={{
-                          background: 'rgba(239, 68, 68, 0.12)',
-                          border: '1px solid var(--accent-rose)',
-                          color: 'var(--accent-rose)',
-                          padding: '0.4rem 0.65rem',
-                          borderRadius: 'var(--radius-sm)',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.35rem',
-                          fontSize: '0.78rem',
-                          fontWeight: 700,
-                          transition: 'all 0.15s ease'
-                        }}
-                        title="Delete only this attendance log"
-                      >
-                        <Trash2 size={14} />
-                        <span>Delete Log</span>
-                      </button>
-                    </td>
+                    {/* Delete Log Action Button (ADMIN ONLY) */}
+                    {isAdmin && (
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => setRecordToDelete(record)}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            border: '1px solid var(--accent-rose)',
+                            color: 'var(--accent-rose)',
+                            padding: '0.4rem 0.65rem',
+                            borderRadius: 'var(--radius-sm)',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            transition: 'all 0.15s ease'
+                          }}
+                          title="Delete only this attendance log"
+                        >
+                          <Trash2 size={14} />
+                          <span>Delete Log</span>
+                        </button>
+                      </td>
+                    )}
 
                   </tr>
                 );
               })
             ) : (
               <tr>
-                <td colSpan="9" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                <td colSpan={isAdmin ? 9 : 8} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
                   No attendance records found matching filters.
                 </td>
               </tr>
