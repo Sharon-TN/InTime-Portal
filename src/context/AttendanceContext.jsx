@@ -791,6 +791,24 @@ export const AttendanceProvider = ({ children }) => {
     return { success: true };
   };
 
+  // Delete only a single specific attendance log record
+  const deleteAttendanceRecord = async (recordId) => {
+    try {
+      setRecords(prev => {
+        const updated = prev.filter(r => r.id !== recordId);
+        localStorage.setItem('intime_attendance_records', JSON.stringify(updated));
+        return updated;
+      });
+      if (supabase) {
+        const { error } = await supabase.from('attendance_records').delete().eq('id', recordId);
+        if (error) console.error("Error deleting attendance record from Supabase:", error);
+      }
+    } catch (e) {
+      console.warn("Delete attendance record error:", e);
+    }
+    return { success: true };
+  };
+
   // Modal control state for employee profile modal
   const [showProfileModal, setShowProfileModal] = useState(false);
 
@@ -817,6 +835,7 @@ export const AttendanceProvider = ({ children }) => {
         logout,
         clearAllData,
         deleteEmployeeAccount,
+        deleteAttendanceRecord,
         clockIn,
         clockOut,
         uploadPayslip,

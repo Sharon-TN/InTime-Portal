@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { MapPin, Search, Calendar, User, ExternalLink, Camera, X, Clock } from 'lucide-react';
+import { MapPin, Search, Calendar, User, ExternalLink, Camera, X, Clock, Trash2 } from 'lucide-react';
 import { getGoogleMapsUrl, formatDateDDMMYYYY, formatWorkDurationHHMM } from '../utils/geoUtils';
+import { useAttendance } from '../context/AttendanceContext';
 
 export default function AttendanceLogTable({ records = [], employees = [], title = "Attendance Logs" }) {
+  const { deleteAttendanceRecord } = useAttendance();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState('ALL'); // ALL | Remote | Office
   const [filterStatus, setFilterStatus] = useState('ALL'); // ALL | ON_TIME | LATE
   const [activeSelfieRecord, setActiveSelfieRecord] = useState(null); // Record selected to view selfie
+  const [recordToDelete, setRecordToDelete] = useState(null); // Record selected for deletion confirmation
 
   // Filter logic
   const filteredRecords = records.filter(record => {
@@ -111,6 +114,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
               <th>Work Duration (HH:MM)</th>
               <th>Status</th>
               <th>Location Address</th>
+              <th style={{ textAlign: 'center' }}>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -267,6 +271,30 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                           </a>
                         )}
                       </div>
+                    {/* Delete Log Action Button */}
+                    <td style={{ textAlign: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => setRecordToDelete(record)}
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.12)',
+                          border: '1px solid var(--accent-rose)',
+                          color: 'var(--accent-rose)',
+                          padding: '0.4rem 0.65rem',
+                          borderRadius: 'var(--radius-sm)',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          transition: 'all 0.15s ease'
+                        }}
+                        title="Delete only this attendance log"
+                      >
+                        <Trash2 size={14} />
+                        <span>Delete Log</span>
+                      </button>
                     </td>
 
                   </tr>
@@ -274,7 +302,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
               })
             ) : (
               <tr>
-                <td colSpan="8" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                <td colSpan="9" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
                   No attendance records found matching filters.
                 </td>
               </tr>
@@ -346,6 +374,59 @@ export default function AttendanceLogTable({ records = [], employees = [], title
             >
               Close Verification
             </button>
+
+          </div>
+        </div>
+      {/* Delete Single Attendance Log Confirmation Modal */}
+      {recordToDelete && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '1rem' }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '440px', padding: '1.75rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--accent-rose)' }}>
+            
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-rose)', fontWeight: 800, fontSize: '1.1rem' }}>
+                <Trash2 size={22} />
+                <span>Delete Attendance Log</span>
+              </div>
+              <button onClick={() => setRecordToDelete(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-main)', lineHeight: 1.5, marginBottom: '1.25rem' }}>
+              Are you sure you want to delete this specific attendance log for <strong>{recordToDelete.employeeName || 'Employee'}</strong> recorded on <strong>{formatDateDDMMYYYY(recordToDelete.date)}</strong> at <strong>{recordToDelete.clockInTime}</strong>?
+            </p>
+
+            <div style={{ background: 'rgba(239, 68, 68, 0.08)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', fontSize: '0.78rem', color: 'var(--accent-rose)', fontWeight: 600, marginBottom: '1.5rem', borderLeft: '3px solid var(--accent-rose)' }}>
+              ℹ️ Note: This will only remove this single attendance entry. The employee's account, profile details, and other records will remain untouched.
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setRecordToDelete(null)}
+                className="btn-secondary"
+                style={{ padding: '0.55rem 1.25rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteAttendanceRecord(recordToDelete.id);
+                  setRecordToDelete(null);
+                }}
+                className="btn-danger"
+                style={{
+                  padding: '0.55rem 1.25rem',
+                  background: 'var(--accent-rose)',
+                  borderColor: 'var(--accent-rose)',
+                  color: '#FFFFFF',
+                  fontWeight: 700
+                }}
+              >
+                Confirm Delete
+              </button>
+            </div>
 
           </div>
         </div>

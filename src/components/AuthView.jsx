@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAttendance } from '../context/AttendanceContext';
-import { Clock, ShieldCheck, UserCheck, UserPlus, LogIn, Mail, Lock, Check, Camera, Upload, User, ArrowRight, ArrowLeft, FileCheck } from 'lucide-react';
+import { Clock, ShieldCheck, UserCheck, UserPlus, LogIn, Mail, Lock, Check, Camera, Upload, User, ArrowRight, ArrowLeft, FileCheck, Eye, EyeOff } from 'lucide-react';
 
 export default function AuthView() {
   const { login, registerEmployee } = useAttendance();
@@ -9,6 +9,8 @@ export default function AuthView() {
   // Login states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showRegPassword, setShowRegPassword] = useState(false);
   
   // Multi-step Registration state
   const [regStep, setRegStep] = useState(1); // Steps 1 to 5
@@ -435,7 +437,7 @@ export default function AuthView() {
               <div style={{ position: 'relative' }}>
                 <Lock size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-subtle)' }} />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
@@ -444,13 +446,34 @@ export default function AuthView() {
                     background: 'var(--bg-input)',
                     border: '1px solid var(--border-color)',
                     color: 'var(--text-main)',
-                    padding: '0.65rem 0.85rem 0.65rem 2.4rem',
+                    padding: '0.65rem 2.4rem 0.65rem 2.4rem',
                     borderRadius: 'var(--radius-sm)',
                     fontSize: '0.9rem',
                     outline: 'none'
                   }}
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '2px'
+                  }}
+                  title={showPassword ? "Hide Password" : "Show Password"}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
 
@@ -750,7 +773,47 @@ export default function AuthView() {
 
                   <div>
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Set Account Password *</label>
-                    <input type="password" placeholder="Create password" value={regPassword} onChange={e => setRegPassword(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.65rem', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', outline: 'none' }} required />
+                    <div style={{ position: 'relative' }}>
+                      <Lock size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-subtle)' }} />
+                      <input
+                        type={showRegPassword ? 'text' : 'password'}
+                        placeholder="Create password"
+                        value={regPassword}
+                        onChange={e => setRegPassword(e.target.value)}
+                        style={{
+                          width: '100%',
+                          background: 'var(--bg-input)',
+                          border: '1px solid var(--border-color)',
+                          color: 'var(--text-main)',
+                          padding: '0.65rem 2.4rem 0.65rem 2.4rem',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: '0.9rem',
+                          outline: 'none'
+                        }}
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegPassword(prev => !prev)}
+                        style={{
+                          position: 'absolute',
+                          right: '12px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '2px'
+                        }}
+                        title={showRegPassword ? "Hide Password" : "Show Password"}
+                      >
+                        {showRegPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
                   </div>
 
                 </div>
