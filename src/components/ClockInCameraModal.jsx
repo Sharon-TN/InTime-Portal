@@ -72,16 +72,17 @@ export default function ClockInCameraModal({ onConfirm, onClose, workMode }) {
     }
   };
 
-  // Capture photo from video stream
+  // Capture photo from video stream with automatic bandwidth optimization
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
+      // Scale resolution to 320x240 thumbnail size for minimal egress bandwidth
+      canvas.width = 320;
+      canvas.height = 240;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.45);
       setPhoto(dataUrl);
     }
   };

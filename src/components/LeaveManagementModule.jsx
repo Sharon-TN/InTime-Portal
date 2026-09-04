@@ -106,6 +106,28 @@ export default function LeaveManagementModule() {
         )}
       </div>
 
+      {/* Admin Pending Leave Indicator Banner */}
+      {isAdmin && visibleLeaves.filter(l => l.status === 'PENDING').length > 0 && (
+        <div style={{
+          background: 'rgba(245, 158, 11, 0.12)',
+          border: '1px solid var(--accent-amber)',
+          borderRadius: 'var(--radius-md)',
+          padding: '1rem 1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          color: 'var(--accent-amber)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <AlertCircle size={20} />
+            <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+              Action Required: {visibleLeaves.filter(l => l.status === 'PENDING').length} employee leave application(s) pending approval below.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Interactive Month Calendar Grid */}
       <div className="glass-card" style={{ padding: '1.75rem', borderRadius: 'var(--radius-lg)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>

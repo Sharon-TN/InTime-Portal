@@ -21,11 +21,14 @@ export default function AdminDashboard() {
   const {
     employees,
     records,
+    leaves,
     shiftPolicy,
     setShiftPolicy,
     clearAllData,
     deleteEmployeeAccount
   } = useAttendance();
+
+  const pendingLeavesCount = (leaves || []).filter(l => l.status === 'PENDING').length;
 
   const [activeTab, setActiveTab] = useState('WORKFORCE'); // 'WORKFORCE' | 'ANALYTICS' | 'LEAVES' | 'PAYSLIPS' | 'DOCUMENTS' | 'DIARIES'
   const [showShiftModal, setShowShiftModal] = useState(false);
@@ -160,11 +163,37 @@ export default function AdminDashboard() {
               fontSize: '0.85rem',
               background: activeTab === 'LEAVES' ? 'var(--accent-amber)' : 'transparent',
               color: activeTab === 'LEAVES' ? '#FFFFFF' : 'var(--text-main)',
-              borderColor: activeTab === 'LEAVES' ? 'var(--accent-amber)' : 'var(--border-color)'
+              borderColor: activeTab === 'LEAVES' ? 'var(--accent-amber)' : 'var(--border-color)',
+              position: 'relative',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem'
             }}
           >
             <Calendar size={16} />
             <span>Leave Requests & Calendar</span>
+            {pendingLeavesCount > 0 && (
+              <span
+                style={{
+                  background: '#EF4444',
+                  color: '#FFFFFF',
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  borderRadius: '9999px',
+                  padding: '0.15rem 0.5rem',
+                  boxShadow: '0 0 10px rgba(239, 68, 68, 0.7)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                  marginLeft: '0.35rem',
+                  border: '1px solid #FFFFFF'
+                }}
+                title={`${pendingLeavesCount} pending leave request(s) awaiting your action`}
+              >
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#FFFFFF', display: 'inline-block' }}></span>
+                {pendingLeavesCount} New
+              </span>
+            )}
           </button>
 
           <button
