@@ -271,6 +271,8 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                           </a>
                         )}
                       </div>
+                    </td>
+
                     {/* Delete Log Action Button */}
                     <td style={{ textAlign: 'center' }}>
                       <button
