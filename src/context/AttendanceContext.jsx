@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { INITIAL_EMPLOYEES, ADMIN_USER, DEFAULT_SHIFT_POLICY, generateInitialRecords } from '../mockData';
 import { getUserCoordinates, getAddressFromCoords, checkLateness } from '../utils/geoUtils';
 import { supabase } from '../lib/supabase';
+import { uploadFileToStorage, deleteFileFromStorage } from '../utils/storageUtils';
 
 const AttendanceContext = createContext(null);
 
@@ -236,12 +237,10 @@ export const AttendanceProvider = ({ children }) => {
     saveShiftPolicyToSupabase(newPolicy);
   };
 
-  // Sync with Supabase (pull down remote database records)
-  const syncWithSupabase = async () => {
+  // Modular sync functions for targeted table updates
+  const syncEmployees = async () => {
     try {
       if (!supabase) return;
-
-      // 1. Sync Employees
       const { data: emps, error: empErr } = await supabase.from('employees').select('*');
       if (empErr) console.error("Sync Employees Error:", empErr);
       if (!empErr && emps !== null) {
@@ -254,8 +253,14 @@ export const AttendanceProvider = ({ children }) => {
         setEmployees(cloudEmps);
         safeSetLocalStorage('intime_employees', cloudEmps);
       }
+    } catch (e) {
+      console.warn("Employees sync notice:", e);
+    }
+  };
 
-      // 2. Sync Records
+  const syncRecords = async () => {
+    try {
+      if (!supabase) return;
       const { data: recs } = await supabase.from('attendance_records').select('*');
       if (recs !== null) {
         const cloudMap = new Map();
@@ -267,8 +272,14 @@ export const AttendanceProvider = ({ children }) => {
         setRecords(cloudRecs);
         safeSetLocalStorage('intime_records', cloudRecs);
       }
+    } catch (e) {
+      console.warn("Records sync notice:", e);
+    }
+  };
 
-      // 3. Sync Payslips
+  const syncPayslips = async () => {
+    try {
+      if (!supabase) return;
       const { data: pays } = await supabase.from('payslips').select('*');
       if (pays !== null) {
         const cloudMap = new Map();
@@ -280,8 +291,14 @@ export const AttendanceProvider = ({ children }) => {
         setPayslips(cloudPays);
         safeSetLocalStorage('intime_payslips', cloudPays);
       }
+    } catch (e) {
+      console.warn("Payslips sync notice:", e);
+    }
+  };
 
-      // 4. Sync Documents
+  const syncDocuments = async () => {
+    try {
+      if (!supabase) return;
       const { data: docs } = await supabase.from('documents').select('*');
       if (docs !== null) {
         const cloudMap = new Map();
@@ -293,8 +310,14 @@ export const AttendanceProvider = ({ children }) => {
         setDocuments(cloudDocs);
         safeSetLocalStorage('intime_documents', cloudDocs);
       }
+    } catch (e) {
+      console.warn("Documents sync notice:", e);
+    }
+  };
 
-      // 5. Sync Leaves
+  const syncLeaves = async () => {
+    try {
+      if (!supabase) return;
       const { data: levs } = await supabase.from('leaves').select('*');
       if (levs !== null) {
         const cloudMap = new Map();
@@ -306,8 +329,14 @@ export const AttendanceProvider = ({ children }) => {
         setLeaves(cloudLevs);
         safeSetLocalStorage('intime_leaves', cloudLevs);
       }
+    } catch (e) {
+      console.warn("Leaves sync notice:", e);
+    }
+  };
 
-      // 6. Sync Work Diaries
+  const syncWorkDiaries = async () => {
+    try {
+      if (!supabase) return;
       const { data: diaries } = await supabase.from('work_diaries').select('*');
       if (diaries !== null) {
         const policyRow = diaries.find(d => d.id === 'SYSTEM_SHIFT_POLICY');
@@ -326,9 +355,21 @@ export const AttendanceProvider = ({ children }) => {
         setWorkDiaries(cloudDiaries);
         safeSetLocalStorage('intime_work_diaries', cloudDiaries);
       }
-    } catch (err) {
-      console.warn("Supabase read notice:", err);
+    } catch (e) {
+      console.warn("Work diaries sync notice:", e);
     }
+  };
+
+  // Sync all data collections with Supabase
+  const syncWithSupabase = async () => {
+    await Promise.allSettled([
+      syncEmployees(),
+      syncRecords(),
+      syncPayslips(),
+      syncDocuments(),
+      syncLeaves(),
+      syncWorkDiaries()
+    ]);
   };
 
   // Push local storage profiles up to Supabase on load (for profiles created before table creation)
@@ -345,13 +386,96 @@ export const AttendanceProvider = ({ children }) => {
     }
   }, []);
 
-  // Realtime Polling every 3 seconds for instant cross-device updates
+  // Supabase Realtime Event-Driven Synchronization (100% Free-Tier Compliant)
   useEffect(() => {
+    // 1. Initial complete synchronization
     syncWithSupabase();
-    const interval = setInterval(() => {
+
+    // 2. Realtime WebSocket subscription for instant event-driven updates across all clients
+    let channel = null;
+    try {
+      if (supabase && supabase.channel) {
+        channel = supabase
+          .channel('intime-realtime-channel')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'employees' },
+            () => {
+              syncEmployees();
+            }
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'attendance_records' },
+            () => {
+              syncRecords();
+            }
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'payslips' },
+            () => {
+              syncPayslips();
+            }
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'documents' },
+            () => {
+              syncDocuments();
+            }
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'leaves' },
+            () => {
+              syncLeaves();
+            }
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'work_diaries' },
+            () => {
+              syncWorkDiaries();
+            }
+          )
+          .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              console.log('Supabase Realtime connected: live event-driven sync active');
+            }
+          });
+      }
+    } catch (err) {
+      console.warn("Realtime subscription setup notice:", err);
+    }
+
+    // 3. Instant re-sync on tab focus (e.g. when user wakes laptop or switches back to InTime)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncWithSupabase();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // 4. Instant re-sync when network reconnects
+    const handleOnline = () => {
       syncWithSupabase();
-    }, 3000);
-    return () => clearInterval(interval);
+    };
+    window.addEventListener('online', handleOnline);
+
+    // 5. Relaxed low-frequency safety heartbeat (every 90 seconds instead of 3 seconds)
+    const heartbeat = setInterval(() => {
+      syncWithSupabase();
+    }, 90000);
+
+    return () => {
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
+      clearInterval(heartbeat);
+    };
   }, []);
 
   // Sync to local storage safely
@@ -570,6 +694,20 @@ export const AttendanceProvider = ({ children }) => {
         addressName = await getAddressFromCoords(coords.lat, coords.lng);
       }
 
+      // Offload camera selfie image to Supabase Storage to prevent database table bloat
+      let finalPhotoUrl = capturedPhoto || currentUser.avatar;
+      if (capturedPhoto && typeof capturedPhoto === 'string' && capturedPhoto.startsWith('data:')) {
+        try {
+          finalPhotoUrl = await uploadFileToStorage(
+            capturedPhoto,
+            'selfies',
+            `selfie_${currentUser.id}_${Date.now()}`
+          );
+        } catch (storageErr) {
+          console.warn("Selfie storage fallback used:", storageErr);
+        }
+      }
+
       const now = new Date();
       const todayStr = now.toISOString().split('T')[0];
       const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
@@ -589,7 +727,7 @@ export const AttendanceProvider = ({ children }) => {
         workMode: workMode,
         locationName: addressName,
         coordinates: coords,
-        capturedPhoto: capturedPhoto || currentUser.avatar,
+        capturedPhoto: finalPhotoUrl,
         accuracy: 10,
       };
 
@@ -651,8 +789,22 @@ export const AttendanceProvider = ({ children }) => {
     return { success: true };
   };
 
-  // Payslip Management
-  const uploadPayslip = (payslipData) => {
+  // Payslip Management with Storage Integration
+  const uploadPayslip = async (payslipData) => {
+    let cloudFileUrl = payslipData.fileData || null;
+
+    if (payslipData.file || (payslipData.fileData && payslipData.fileData.startsWith('data:'))) {
+      try {
+        cloudFileUrl = await uploadFileToStorage(
+          payslipData.file || payslipData.fileData,
+          'payslips',
+          payslipData.fileName || `Payslip_${payslipData.month}_${payslipData.employeeName}`
+        );
+      } catch (err) {
+        console.warn("Payslip cloud upload notice:", err);
+      }
+    }
+
     const newPayslip = {
       id: `PAY-${Date.now()}`,
       employeeId: payslipData.employeeId,
@@ -664,7 +816,7 @@ export const AttendanceProvider = ({ children }) => {
       netSalary: (Number(payslipData.basicPay || 60000) + Number(payslipData.allowances || 15000)) - Number(payslipData.deductions || 5000),
       issueDate: new Date().toLocaleDateString(),
       fileName: payslipData.fileName || `Payslip_${payslipData.month}_${payslipData.employeeName}.pdf`,
-      fileData: payslipData.fileData || null
+      fileData: cloudFileUrl
     };
     setPayslips(prev => [newPayslip, ...prev]);
     savePayslipToSupabase(newPayslip);
@@ -672,6 +824,10 @@ export const AttendanceProvider = ({ children }) => {
   };
 
   const deletePayslip = async (id) => {
+    const target = payslips.find(p => p.id === id);
+    if (target && target.fileData) {
+      deleteFileFromStorage(target.fileData);
+    }
     setPayslips(prev => prev.filter(p => p.id !== id));
     try {
       if (supabase) await supabase.from('payslips').delete().eq('id', id);
@@ -680,8 +836,22 @@ export const AttendanceProvider = ({ children }) => {
     }
   };
 
-  // Document Management
-  const uploadDocument = (docData) => {
+  // Document Management with Storage Integration
+  const uploadDocument = async (docData) => {
+    let cloudFileUrl = docData.fileData || null;
+
+    if (docData.file || (docData.fileData && docData.fileData.startsWith('data:'))) {
+      try {
+        cloudFileUrl = await uploadFileToStorage(
+          docData.file || docData.fileData,
+          'documents',
+          docData.fileName || docData.title
+        );
+      } catch (err) {
+        console.warn("Document cloud upload notice:", err);
+      }
+    }
+
     const newDoc = {
       id: `DOC-${Date.now()}`,
       employeeId: currentUser.id,
@@ -691,7 +861,7 @@ export const AttendanceProvider = ({ children }) => {
       fileName: docData.fileName,
       fileType: docData.fileType || 'application/pdf',
       fileSize: docData.fileSize || '1.2 MB',
-      fileData: docData.fileData,
+      fileData: cloudFileUrl,
       uploadDate: new Date().toLocaleDateString(),
       status: 'Verified'
     };
@@ -701,6 +871,10 @@ export const AttendanceProvider = ({ children }) => {
   };
 
   const deleteDocument = async (id) => {
+    const target = documents.find(d => d.id === id);
+    if (target && target.fileData) {
+      deleteFileFromStorage(target.fileData);
+    }
     setDocuments(prev => prev.filter(d => d.id !== id));
     try {
       if (supabase) await supabase.from('documents').delete().eq('id', id);

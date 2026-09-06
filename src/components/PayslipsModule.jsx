@@ -144,6 +144,7 @@ export default function PayslipsModule() {
       employeeName: matchedEmp.name,
       month,
       fileName: file.name,
+      file: file,
       fileData: dataUrl
     };
   };
@@ -187,16 +188,17 @@ export default function PayslipsModule() {
 
       // If all files matched successfully, execute disbursal
       let matchSummary = [];
-      results.forEach(res => {
-        uploadPayslip({
+      for (const res of results) {
+        await uploadPayslip({
           employeeId: res.employeeId,
           employeeName: res.employeeName,
           month: res.month,
           fileName: res.fileName,
+          file: res.file,
           fileData: res.fileData
         });
         matchSummary.push(`• ${res.fileName} ➔ ${res.employeeName}`);
-      });
+      }
 
       alert(`✅ Success! Auto-routed ${results.length} payslip PDF(s) to employees:\n\n` + matchSummary.join('\n'));
 
@@ -235,11 +237,12 @@ export default function PayslipsModule() {
         reader.readAsDataURL(manualFile);
       });
 
-      uploadPayslip({
+      await uploadPayslip({
         employeeId: matchedEmp.id,
         employeeName: matchedEmp.name,
         month: manualMonth,
         fileName: manualFile.name,
+        file: manualFile,
         fileData: dataUrl
       });
 

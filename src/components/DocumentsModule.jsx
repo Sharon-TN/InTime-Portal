@@ -30,16 +30,17 @@ export default function DocumentsModule() {
     }
   };
 
-  const handleUploadSubmit = (e) => {
+  const handleUploadSubmit = async (e) => {
     e.preventDefault();
     if (!title || (!selectedFile && !fileData)) return;
 
-    uploadDocument({
+    await uploadDocument({
       title,
       category,
       fileName: selectedFile ? selectedFile.name : `${title}.pdf`,
       fileType: selectedFile ? selectedFile.type : 'application/pdf',
       fileSize: selectedFile ? `${(selectedFile.size / 1024).toFixed(1)} KB` : '150 KB',
+      file: selectedFile,
       fileData: fileData || 'data:text/plain;base64,U2FtcGxlIERvY3VtZW50IENvbnRlbnQ='
     });
 
