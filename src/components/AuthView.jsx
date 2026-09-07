@@ -412,7 +412,6 @@ export default function AuthView() {
                 <Mail size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-subtle)' }} />
                 <input
                   type="email"
-                  placeholder={tab === 'ADMIN_LOGIN' ? 'admin@intime.tech' : 'employee@intime.tech'}
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   style={{
