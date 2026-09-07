@@ -556,13 +556,16 @@ export const AttendanceProvider = ({ children }) => {
       return { success: false, error: "Invalid Admin email or password." };
     } else {
       const found = employees.find(
-        e => (e.email || '').toLowerCase() === cleanEmail && (e.password === password || password === 'password123')
+        e => (e.email || '').toLowerCase() === cleanEmail
       );
-      if (found) {
-        setCurrentUser(found);
-        return { success: true, user: found };
+      if (!found) {
+        return { success: false, error: "No employee profile found with this email. Please register first." };
       }
-      return { success: false, error: "No employee profile found with these credentials. Please register first." };
+      if (found.password !== password) {
+        return { success: false, error: "Incorrect password. Please enter the password set during registration." };
+      }
+      setCurrentUser(found);
+      return { success: true, user: found };
     }
   };
 
