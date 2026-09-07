@@ -6,8 +6,8 @@ export const ADMIN_USER = {
   id: "ADM-001",
   name: "Admin Manager",
   role: "Engineering Manager",
-  email: "admin@intime.tech",
-  password: "admin123",
+  email: import.meta.env?.VITE_ADMIN_EMAIL || "admin@intime.tech",
+  password: import.meta.env?.VITE_ADMIN_PASSWORD || "Aven@2026int",
   roleType: "ADMIN"
 };
 
