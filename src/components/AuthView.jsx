@@ -544,6 +544,7 @@ export default function AuthView() {
                     <select value={department} onChange={e => setDepartment(e.target.value)} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '0.55rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', outline: 'none' }} required>
                       <option value="">-- Select Department --</option>
                       <option value="Admin">Admin</option>
+                      <option value="R & D">R & D</option>
                       <option value="Product Development">Product Development</option>
                       <option value="Project Management">Project Management</option>
                       <option value="Business Development">Business Development</option>
