@@ -130,6 +130,41 @@ export const formatTime12Hour = (timeStr) => {
   return `${strHours}:${minutes} ${ampm}`;
 };
 
+// Get current time breakdown in Indian Standard Time (IST)
+export const getISTTime = () => {
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  const parts = formatter.formatToParts(new Date());
+  const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+  const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+  const second = parseInt(parts.find(p => p.type === 'second')?.value || '0', 10);
+  const totalMinutes = hour * 60 + minute;
+  return {
+    hour,
+    minute,
+    second,
+    totalMinutes,
+    isAfter6PM: totalMinutes >= 18 * 60, // 18:00 IST (06:00 PM)
+    isAfter605PM: totalMinutes >= (18 * 60 + 5) // 18:05 IST (06:05 PM)
+  };
+};
+
+// Get current date formatted as YYYY-MM-DD in Indian Standard Time (IST)
+export const getISTDateString = () => {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  return formatter.format(new Date());
+};
+
 // Calculate and format shift work duration into HH:MM (Hours:Minutes) format
 export const formatWorkDurationHHMM = (clockInIso, clockOutIso) => {
   if (!clockInIso) return '00:00';
@@ -139,7 +174,13 @@ export const formatWorkDurationHHMM = (clockInIso, clockOutIso) => {
   const diffMs = end - start;
   if (diffMs <= 0) return '00:00';
 
-  const totalMinutes = Math.floor(diffMs / (1000 * 60));
+  let totalMinutes = Math.floor(diffMs / (1000 * 60));
+
+  // Cap unclosed / stale active shifts at 9 hours max to prevent runaway 43+ hr counters
+  if (!clockOutIso && totalMinutes > 9 * 60) {
+    totalMinutes = 9 * 60; // 09:00 hrs cap
+  }
+
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 

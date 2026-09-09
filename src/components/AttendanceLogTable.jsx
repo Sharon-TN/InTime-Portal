@@ -219,7 +219,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                             {record.clockOutTime}
                           </div>
                           <div style={{ fontSize: '0.72rem', color: 'var(--text-subtle)' }}>
-                            {formattedDate}
+                            {record.clockOutIso ? formatDateDDMMYYYY(record.clockOutIso) : formattedDate}
                           </div>
                         </div>
                       ) : (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAttendance } from '../context/AttendanceContext';
 import LiveClock from './LiveClock';
 import AttendanceLogTable from './AttendanceLogTable';
@@ -8,7 +8,7 @@ import PayslipsModule from './PayslipsModule';
 import DocumentsModule from './DocumentsModule';
 import LeaveManagementModule from './LeaveManagementModule';
 import WorkDiaryReviewModule from './WorkDiaryReviewModule';
-import { formatTime12Hour } from '../utils/geoUtils';
+import { formatTime12Hour, getISTTime, getISTDateString } from '../utils/geoUtils';
 import {
   MapPin, LogIn, LogOut, CheckCircle, Clock, Navigation, AlertTriangle, ShieldCheck,
   BookOpen, Calendar, FileText, Folder, Radio, Camera, User, UserMinus, Trash2,
@@ -40,8 +40,70 @@ export default function EmployeeDashboard() {
   const [showDiaryModal, setShowDiaryModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
 
+  // Live IST Shift Guardrails
+  const [istState, setIstState] = useState(() => getISTTime());
+  const autoDiaryOpenedRef = useRef(false);
+  const autoClockOutTriggeredRef = useRef(false);
+
   const isClockedIn = !!currentUserTodayRecord;
   const userRecords = records.filter(r => r.employeeId === currentUser?.id);
+
+  // Automatic Shift Schedule Monitor: 6:00 PM Work Diary prompt & 6:05 PM Auto Clock-Out
+  useEffect(() => {
+    const checkShiftSchedule = () => {
+      const currentIst = getISTTime();
+      setIstState(currentIst);
+
+      if (!isClockedIn) return;
+
+      // 1. At 6:00 PM IST (18:00 to 18:04), auto-open Daily Work Diary modal once
+      if (currentIst.isAfter6PM && !currentIst.isAfter605PM) {
+        if (!autoDiaryOpenedRef.current && !showDiaryModal) {
+          autoDiaryOpenedRef.current = true;
+          setShowDiaryModal(true);
+        }
+      }
+
+      // 2. At 6:05 PM IST (>= 18:05), auto clock out if employee forgot to submit
+      if (currentIst.isAfter605PM) {
+        if (!autoClockOutTriggeredRef.current) {
+          autoClockOutTriggeredRef.current = true;
+          handleAutoClockOut();
+        }
+      }
+    };
+
+    checkShiftSchedule();
+    const timer = setInterval(checkShiftSchedule, 5000);
+    return () => clearInterval(timer);
+  }, [isClockedIn, showDiaryModal]);
+
+  // Handle 6:05 PM IST Automatic Shift Checkout
+  const handleAutoClockOut = async () => {
+    setShowDiaryModal(false);
+    setLoading(true);
+    try {
+      const todayDate = getISTDateString();
+      const autoDiary = {
+        completedTasks: 'Standard working hours completed (Automated shift closure at 06:05 PM IST).',
+        keyAccomplishments: 'Regular daily shift fulfilled.',
+        tomorrowObjectives: 'Resume scheduled duties.',
+        shiftNotes: 'System automated checkout at 06:05 PM IST.'
+      };
+      const res = await clockOut(autoDiary, {
+        timeString: '06:00 PM',
+        isoString: `${todayDate}T18:00:00+05:30`,
+        autoClosed: true
+      });
+      if (res && res.success) {
+        logout();
+      }
+    } catch (err) {
+      console.error("Auto clock-out error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Trigger Clock In camera modal
   const handleStartClockInFlow = () => {
@@ -67,6 +129,10 @@ export default function EmployeeDashboard() {
 
   // Trigger Clock Out Work Diary modal
   const handleStartClockOutFlow = () => {
+    if (!istState.isAfter6PM) {
+      setError('Clock-out is locked until 06:00 PM IST. Shift in progress.');
+      return;
+    }
     setError('');
     setShowDiaryModal(true);
   };
@@ -360,19 +426,43 @@ export default function EmployeeDashboard() {
                     </div>
                   </div>
 
-                  <div style={{ background: 'var(--bg-input)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.15rem' }}>Mandatory Clock-Out Protocol:</div>
-                    You will be prompted to submit your <strong>Daily Work Diary</strong> (tasks completed & tomorrow objectives) before shift checkout.
-                  </div>
+                  {!istState.isAfter6PM ? (
+                    <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.35)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem' }}>
+                        <Clock size={15} style={{ color: 'var(--accent-amber)' }} />
+                        <span>Shift Completion Policy (IST):</span>
+                      </div>
+                      Clock-out and Work Diary submission unlock at <strong>06:00 PM IST</strong>. At 6:00 PM, your Daily Work Diary will appear automatically. If unattended, automatic shift checkout occurs at <strong>06:05 PM IST</strong>.
+                    </div>
+                  ) : (
+                    <div style={{ background: 'var(--bg-input)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.15rem' }}>Mandatory Clock-Out Protocol:</div>
+                      Please submit your <strong>Daily Work Diary</strong> (tasks completed & tomorrow objectives) before shift checkout.
+                    </div>
+                  )}
 
                   <button
                     onClick={handleStartClockOutFlow}
                     className="btn-danger"
-                    disabled={loading}
-                    style={{ padding: '0.9rem', fontSize: '1rem', width: '100%', justifyContent: 'center' }}
+                    disabled={loading || !istState.isAfter6PM}
+                    style={{
+                      padding: '0.9rem',
+                      fontSize: '0.95rem',
+                      width: '100%',
+                      justifyContent: 'center',
+                      opacity: !istState.isAfter6PM ? 0.6 : 1,
+                      cursor: !istState.isAfter6PM ? 'not-allowed' : 'pointer'
+                    }}
+                    title={!istState.isAfter6PM ? "Clock-Out unlocks at 06:00 PM IST" : "Submit Work Diary & Clock Out"}
                   >
-                    <LogOut size={20} />
-                    <span>{loading ? 'Processing...' : 'Submit Work Diary & Clock Out'}</span>
+                    {!istState.isAfter6PM ? <Clock size={20} /> : <LogOut size={20} />}
+                    <span>
+                      {loading
+                        ? 'Processing...'
+                        : !istState.isAfter6PM
+                        ? 'Clock-Out Unlocks at 06:00 PM IST'
+                        : 'Submit Work Diary & Clock Out'}
+                    </span>
                   </button>
                 </div>
               )}

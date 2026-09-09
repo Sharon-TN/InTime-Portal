@@ -2,11 +2,25 @@ import React from 'react';
 import { useAttendance } from '../context/AttendanceContext';
 import LiveClock from './LiveClock';
 import { Clock, LogOut, Sun, Moon } from 'lucide-react';
+import { getISTTime } from '../utils/geoUtils';
 
 export default function Header() {
-  const { currentUser, logout, theme, toggleTheme, setShowProfileModal } = useAttendance();
+  const { currentUser, currentUserTodayRecord, logout, theme, toggleTheme, setShowProfileModal } = useAttendance();
 
   const isAdmin = currentUser?.roleType === 'ADMIN';
+  const istTime = getISTTime();
+  const isEmployeeShiftLocked =
+    currentUser?.roleType === 'EMPLOYEE' &&
+    !!currentUserTodayRecord &&
+    !istTime.isAfter6PM;
+
+  const handleSignOutClick = () => {
+    if (isEmployeeShiftLocked) {
+      alert('Your active shift is currently in progress. Shift completion and Sign Out unlocks at 06:00 PM IST.');
+      return;
+    }
+    logout();
+  };
 
   return (
     <header className="app-header">
@@ -79,9 +93,15 @@ export default function Header() {
         {currentUser && (
           <button
             className="btn-secondary"
-            onClick={logout}
-            title="Sign out of your account"
-            style={{ padding: '0.45rem 0.85rem', fontSize: '0.82rem' }}
+            onClick={handleSignOutClick}
+            disabled={isEmployeeShiftLocked}
+            title={isEmployeeShiftLocked ? "Sign Out unlocks at 06:00 PM IST during active shift" : "Sign out of your account"}
+            style={{
+              padding: '0.45rem 0.85rem',
+              fontSize: '0.82rem',
+              opacity: isEmployeeShiftLocked ? 0.6 : 1,
+              cursor: isEmployeeShiftLocked ? 'not-allowed' : 'pointer'
+            }}
           >
             <LogOut size={15} />
             <span>Sign Out</span>

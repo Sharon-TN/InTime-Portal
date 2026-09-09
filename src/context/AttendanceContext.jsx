@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { INITIAL_EMPLOYEES, ADMIN_USER, DEFAULT_SHIFT_POLICY, generateInitialRecords } from '../mockData';
-import { getUserCoordinates, getAddressFromCoords, checkLateness } from '../utils/geoUtils';
+import { getUserCoordinates, getAddressFromCoords, checkLateness, getISTTime, getISTDateString } from '../utils/geoUtils';
 import { supabase } from '../lib/supabase';
 import { uploadFileToStorage, deleteFileFromStorage } from '../utils/storageUtils';
 
@@ -81,7 +81,23 @@ export const AttendanceProvider = ({ children }) => {
     const saved = localStorage.getItem('intime_records');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        const todayIst = getISTDateString();
+        const istTime = getISTTime();
+        return parsed.map(item => {
+          const isPastDay = item.date && item.date < todayIst;
+          const isTodayPast605 = item.date === todayIst && istTime.isAfter605PM;
+          if (item.status === 'CLOCK_IN' && (isPastDay || isTodayPast605)) {
+            return {
+              ...item,
+              status: 'CLOCK_OUT',
+              clockOutTime: '06:00 PM',
+              clockOutIso: `${item.date}T18:00:00+05:30`,
+              autoClosed: true
+            };
+          }
+          return item;
+        });
       } catch (e) {
         console.error("Failed to parse saved records", e);
       }
@@ -264,8 +280,27 @@ export const AttendanceProvider = ({ children }) => {
       const { data: recs } = await supabase.from('attendance_records').select('*');
       if (recs !== null) {
         const cloudMap = new Map();
+        const todayIst = getISTDateString();
+        const istTime = getISTTime();
+
         recs.forEach(row => {
-          const item = row.data ? { ...row.data, id: row.id } : row;
+          let item = row.data ? { ...row.data, id: row.id } : row;
+
+          // Auto-reconcile stale/unclosed shifts from past days or today after 6:05 PM IST
+          const isPastDay = item.date && item.date < todayIst;
+          const isTodayPast605 = item.date === todayIst && istTime.isAfter605PM;
+
+          if (item.status === 'CLOCK_IN' && (isPastDay || isTodayPast605)) {
+            item = {
+              ...item,
+              status: 'CLOCK_OUT',
+              clockOutTime: '06:00 PM',
+              clockOutIso: `${item.date}T18:00:00+05:30`,
+              autoClosed: true
+            };
+            saveRecordToSupabase(item);
+          }
+
           cloudMap.set(item.id, item);
         });
         const cloudRecs = Array.from(cloudMap.values());
@@ -640,35 +675,41 @@ export const AttendanceProvider = ({ children }) => {
   // Logout handler
   const logout = () => {
     if (currentUser && currentUser.roleType === 'EMPLOYEE') {
-      const activeRec = records.find(r => r.employeeId === currentUser.id && r.status === 'CLOCK_IN');
-      if (activeRec) {
-        const now = new Date();
-        const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+      const todayIst = getISTDateString();
+      const istTime = getISTTime();
+      // Only clock out on logout if shift is active and it is 6:00 PM IST or later
+      if (istTime.isAfter6PM) {
+        const activeRec = records.find(r => r.employeeId === currentUser.id && r.status === 'CLOCK_IN' && r.date === todayIst);
+        if (activeRec) {
+          const now = new Date();
+          const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 
-        const updatedRecords = records.map(r => {
-          if (r.id === activeRec.id) {
-            const updated = {
-              ...r,
-              clockOutTime: timeString,
-              clockOutIso: now.toISOString(),
-              status: 'CLOCK_OUT'
-            };
-            saveRecordToSupabase(updated);
-            return updated;
-          }
-          return r;
-        });
+          const updatedRecords = records.map(r => {
+            if (r.id === activeRec.id) {
+              const updated = {
+                ...r,
+                clockOutTime: timeString,
+                clockOutIso: now.toISOString(),
+                status: 'CLOCK_OUT'
+              };
+              saveRecordToSupabase(updated);
+              return updated;
+            }
+            return r;
+          });
 
-        setRecords(updatedRecords);
-        localStorage.setItem('intime_records', JSON.stringify(updatedRecords));
+          setRecords(updatedRecords);
+          localStorage.setItem('intime_records', JSON.stringify(updatedRecords));
+        }
       }
     }
     setCurrentUser(null);
     localStorage.removeItem('intime_user');
   };
 
+  const todayIstDate = getISTDateString();
   const currentUserTodayRecord = currentUser ? records.find(
-    r => r.employeeId === currentUser.id && r.status === 'CLOCK_IN'
+    r => r.employeeId === currentUser.id && r.status === 'CLOCK_IN' && r.date === todayIstDate
   ) : null;
 
   // Clock In Action
@@ -744,18 +785,21 @@ export const AttendanceProvider = ({ children }) => {
   };
 
   // Clock Out Action
-  const clockOut = async (workDiaryData = null) => {
+  const clockOut = async (workDiaryData = null, options = {}) => {
     if (!currentUser) return { success: false, error: "Must be logged in to clock out." };
 
-    const activeRec = records.find(r => r.employeeId === currentUser.id && r.status === 'CLOCK_IN');
+    const todayIst = getISTDateString();
+    const activeRec = records.find(r => r.employeeId === currentUser.id && r.status === 'CLOCK_IN' && r.date === todayIst)
+      || records.find(r => r.employeeId === currentUser.id && r.status === 'CLOCK_IN');
     
     if (!activeRec) {
       return { success: false, error: "No active clock-in session found." };
     }
 
     const now = new Date();
-    const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    const todayStr = now.toISOString().split('T')[0];
+    const timeString = options.timeString || now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    const isoString = options.isoString || now.toISOString();
+    const todayStr = options.date || activeRec.date || todayIst;
 
     if (workDiaryData) {
       const diaryRecord = {
@@ -778,9 +822,10 @@ export const AttendanceProvider = ({ children }) => {
         const updated = {
           ...r,
           clockOutTime: timeString,
-          clockOutIso: now.toISOString(),
+          clockOutIso: isoString,
           status: 'CLOCK_OUT',
-          workDiarySubmitted: !!workDiaryData
+          workDiarySubmitted: !!workDiaryData,
+          autoClosed: !!options.autoClosed
         };
         saveRecordToSupabase(updated);
         return updated;

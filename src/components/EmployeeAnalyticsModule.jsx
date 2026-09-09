@@ -160,7 +160,10 @@ export default function EmployeeAnalyticsModule() {
         weekdayShiftCount++;
         const startTime = new Date(r.clockInIso);
         const endTime = r.clockOutIso ? new Date(r.clockOutIso) : new Date();
-        const durationMs = Math.max(0, endTime - startTime);
+        let durationMs = Math.max(0, endTime - startTime);
+        if (!r.clockOutIso && durationMs > 9 * 60 * 60 * 1000) {
+          durationMs = 9 * 60 * 60 * 1000;
+        }
         totalWeekdayMs += durationMs;
       }
     });
