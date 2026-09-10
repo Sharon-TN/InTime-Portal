@@ -314,7 +314,7 @@ export default function AdminDashboard() {
             <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '1.25rem' }}>
               Live Staff Attendance Stream
             </h3>
-            <AttendanceLogTable records={records} isAdmin={true} />
+            <AttendanceLogTable records={records} employees={employees} isAdmin={true} />
           </div>
 
           <div className="glass-card" style={{ padding: '1.75rem', borderRadius: 'var(--radius-lg)' }}>

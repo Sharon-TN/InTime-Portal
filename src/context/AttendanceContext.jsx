@@ -84,7 +84,7 @@ export const AttendanceProvider = ({ children }) => {
         const parsed = JSON.parse(saved);
         const todayIst = getISTDateString();
         const istTime = getISTTime();
-        return parsed.map(item => {
+        const reconciled = parsed.map(item => {
           const isPastDay = item.date && item.date < todayIst;
           const isTodayPast605 = item.date === todayIst && istTime.isAfter605PM;
           if (item.status === 'CLOCK_IN' && (isPastDay || isTodayPast605)) {
@@ -98,6 +98,16 @@ export const AttendanceProvider = ({ children }) => {
           }
           return item;
         });
+        // Sort latest date first
+        reconciled.sort((a, b) => {
+          const dateA = a.date || (a.clockInIso ? a.clockInIso.split('T')[0] : '');
+          const dateB = b.date || (b.clockInIso ? b.clockInIso.split('T')[0] : '');
+          if (dateA !== dateB) return dateB.localeCompare(dateA);
+          const timeA = a.clockInIso ? new Date(a.clockInIso).getTime() : 0;
+          const timeB = b.clockInIso ? new Date(b.clockInIso).getTime() : 0;
+          return timeB - timeA;
+        });
+        return reconciled;
       } catch (e) {
         console.error("Failed to parse saved records", e);
       }
@@ -304,6 +314,15 @@ export const AttendanceProvider = ({ children }) => {
           cloudMap.set(item.id, item);
         });
         const cloudRecs = Array.from(cloudMap.values());
+        // Sort latest date first, followed by yesterday, day before, etc.
+        cloudRecs.sort((a, b) => {
+          const dateA = a.date || (a.clockInIso ? a.clockInIso.split('T')[0] : '');
+          const dateB = b.date || (b.clockInIso ? b.clockInIso.split('T')[0] : '');
+          if (dateA !== dateB) return dateB.localeCompare(dateA);
+          const timeA = a.clockInIso ? new Date(a.clockInIso).getTime() : 0;
+          const timeB = b.clockInIso ? new Date(b.clockInIso).getTime() : 0;
+          return timeB - timeA;
+        });
         setRecords(cloudRecs);
         safeSetLocalStorage('intime_records', cloudRecs);
       }

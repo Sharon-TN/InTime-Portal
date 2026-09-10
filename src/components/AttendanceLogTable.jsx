@@ -1,28 +1,67 @@
 import React, { useState } from 'react';
 import { MapPin, Search, Calendar, User, ExternalLink, Camera, X, Clock, Trash2 } from 'lucide-react';
-import { getGoogleMapsUrl, formatDateDDMMYYYY, formatWorkDurationHHMM } from '../utils/geoUtils';
+import { getGoogleMapsUrl, formatDateDDMMYYYY, formatWorkDurationHHMM, getISTDateString } from '../utils/geoUtils';
 import { useAttendance } from '../context/AttendanceContext';
 
 export default function AttendanceLogTable({ records = [], employees = [], title = "Attendance Logs" }) {
-  const { currentUser, deleteAttendanceRecord } = useAttendance();
+  const { currentUser, deleteAttendanceRecord, employees: ctxEmployees } = useAttendance();
+  const allEmployees = (employees && employees.length > 0) ? employees : (ctxEmployees || []);
   const isAdmin = currentUser?.roleType === 'ADMIN';
+
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterDate, setFilterDate] = useState('ALL'); // 'ALL' | 'YYYY-MM-DD'
   const [filterMode, setFilterMode] = useState('ALL'); // ALL | Remote | Office
   const [filterStatus, setFilterStatus] = useState('ALL'); // ALL | ON_TIME | LATE
   const [activeSelfieRecord, setActiveSelfieRecord] = useState(null); // Record selected to view selfie
   const [recordToDelete, setRecordToDelete] = useState(null); // Record selected for deletion confirmation
 
+  const todayIst = getISTDateString();
+  const getYesterdayIst = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    return formatter.format(d);
+  };
+  const yesterdayIst = getYesterdayIst();
+
+  // Extract all unique dates from records, sorted strictly latest first down to oldest
+  const availableDates = Array.from(
+    new Set(records.map(r => r.date || (r.clockInIso ? r.clockInIso.split('T')[0] : '')).filter(Boolean))
+  ).sort((a, b) => b.localeCompare(a));
+
+  // Sort records: latest date login logs first, followed by yesterday, day before, etc.
+  const sortedRecords = [...records].sort((a, b) => {
+    const dateA = a.date || (a.clockInIso ? a.clockInIso.split('T')[0] : '');
+    const dateB = b.date || (b.clockInIso ? b.clockInIso.split('T')[0] : '');
+    if (dateA !== dateB) {
+      return dateB.localeCompare(dateA); // Latest date on top
+    }
+    const timeA = a.clockInIso ? new Date(a.clockInIso).getTime() : 0;
+    const timeB = b.clockInIso ? new Date(b.clockInIso).getTime() : 0;
+    if (timeA !== timeB) {
+      return timeB - timeA; // Latest check-in on top within same day
+    }
+    return (b.id || '').localeCompare(a.id || '');
+  });
+
   // Filter logic
-  const filteredRecords = records.filter(record => {
-    const emp = employees.find(e => e.id === record.employeeId) || { name: record.employeeName };
+  const filteredRecords = sortedRecords.filter(record => {
+    const emp = allEmployees.find(e => e.id === record.employeeId) || { name: record.employeeName };
     const matchesSearch =
       (emp.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (record.locationName || '').toLowerCase().includes(searchTerm.toLowerCase());
 
+    const recordDate = record.date || (record.clockInIso ? record.clockInIso.split('T')[0] : '');
+    const matchesDate = filterDate === 'ALL' || recordDate === filterDate;
     const matchesMode = filterMode === 'ALL' || record.workMode === filterMode;
     const matchesStatus = filterStatus === 'ALL' || record.latenessStatus === filterStatus;
 
-    return matchesSearch && matchesMode && matchesStatus;
+    return matchesSearch && matchesDate && matchesMode && matchesStatus;
   });
 
   return (
@@ -33,7 +72,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
           <Calendar size={20} style={{ color: 'var(--primary)' }} />
           <span>{title}</span>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-            ({filteredRecords.length} records)
+            ({filteredRecords.length} {filterDate !== 'ALL' ? `on ${formatDateDDMMYYYY(filterDate)}` : 'records'})
           </span>
         </h3>
 
@@ -59,6 +98,63 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                 width: '210px'
               }}
             />
+          </div>
+
+          {/* Date Filter Dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <select
+              value={filterDate}
+              onChange={e => setFilterDate(e.target.value)}
+              style={{
+                background: 'var(--bg-input)',
+                border: filterDate !== 'ALL' ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                color: filterDate !== 'ALL' ? 'var(--primary)' : 'var(--text-main)',
+                padding: '0.45rem 0.75rem',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.85rem',
+                outline: 'none',
+                fontWeight: filterDate !== 'ALL' ? 700 : 500,
+                cursor: 'pointer'
+              }}
+              title="Filter attendance logs by specific date"
+            >
+              <option value="ALL">📅 All Dates ({availableDates.length} days recorded)</option>
+              {availableDates.map(dateStr => {
+                const count = records.filter(r => (r.date || (r.clockInIso && r.clockInIso.split('T')[0])) === dateStr).length;
+                let label = formatDateDDMMYYYY(dateStr);
+                if (dateStr === todayIst) label += ' (Today)';
+                else if (dateStr === yesterdayIst) label += ' (Yesterday)';
+                return (
+                  <option key={dateStr} value={dateStr}>
+                    {label} — {count} {count === 1 ? 'log' : 'logs'}
+                  </option>
+                );
+              })}
+            </select>
+
+            {filterDate !== 'ALL' && (
+              <button
+                type="button"
+                onClick={() => setFilterDate('ALL')}
+                title="Reset to All Dates"
+                style={{
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid var(--accent-rose)',
+                  color: 'var(--accent-rose)',
+                  padding: '0.42rem 0.65rem',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.78rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontWeight: 600
+                }}
+              >
+                <X size={13} />
+                <span>All</span>
+              </button>
+            )}
           </div>
 
           {/* Work Mode Filter */}
@@ -121,12 +217,12 @@ export default function AttendanceLogTable({ records = [], employees = [], title
           <tbody>
             {filteredRecords.length > 0 ? (
               filteredRecords.map(record => {
-                const emp = employees.find(e => e.id === record.employeeId) || {
+                const emp = allEmployees.find(e => e.id === record.employeeId) || {
                   name: record.employeeName,
                   role: 'Employee'
                 };
 
-                const formattedDate = formatDateDDMMYYYY(record.date);
+                const formattedDate = formatDateDDMMYYYY(record.date || (record.clockInIso ? record.clockInIso.split('T')[0] : ''));
                 const workDurationStr = formatWorkDurationHHMM(record.clockInIso, record.clockOutIso);
 
                 return (
