@@ -3,10 +3,10 @@ import { MapPin, Search, Calendar, User, ExternalLink, Camera, X, Clock, Trash2 
 import { getGoogleMapsUrl, formatDateDDMMYYYY, formatWorkDurationHHMM, getISTDateString } from '../utils/geoUtils';
 import { useAttendance } from '../context/AttendanceContext';
 
-export default function AttendanceLogTable({ records = [], employees = [], title = "Attendance Logs" }) {
+export default function AttendanceLogTable({ records = [], employees = [], title = "Attendance Logs", isAdmin: propIsAdmin }) {
   const { currentUser, deleteAttendanceRecord, employees: ctxEmployees } = useAttendance();
   const allEmployees = (employees && employees.length > 0) ? employees : (ctxEmployees || []);
-  const isAdmin = currentUser?.roleType === 'ADMIN';
+  const isAdmin = currentUser?.roleType === 'ADMIN' || !!propIsAdmin;
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDate, setFilterDate] = useState('ALL'); // 'ALL' | 'YYYY-MM-DD'
@@ -352,9 +352,32 @@ export default function AttendanceLogTable({ records = [], employees = [], title
 
                     {/* Work Duration (HH:MM) */}
                     <td>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary)', padding: '0.3rem 0.6rem', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.88rem' }}>
-                        <Clock size={14} />
-                        <span>{workDurationStr}</span>
+                      <div style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.45rem' }}>
+                        <div style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          background: (isAdmin && record.isEarlyClockOut) ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                          color: (isAdmin && record.isEarlyClockOut) ? '#ef4444' : 'var(--primary)',
+                          padding: '0.3rem 0.6rem',
+                          borderRadius: 'var(--radius-sm)',
+                          fontFamily: 'var(--font-mono)',
+                          fontWeight: 800,
+                          fontSize: '0.88rem'
+                        }}>
+                          <Clock size={14} />
+                          <span>{workDurationStr}</span>
+                        </div>
+                        {isAdmin && record.isEarlyClockOut && (
+                          <span style={{
+                            color: '#ef4444',
+                            fontWeight: 700,
+                            fontSize: '0.82rem',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            (Early Log Out)
+                          </span>
+                        )}
                       </div>
                     </td>
 
