@@ -39,6 +39,8 @@ export default function EmployeeDashboard() {
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [showDiaryModal, setShowDiaryModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showEarlyConfirmModal, setShowEarlyConfirmModal] = useState(false);
+  const [isEarlyExitFlow, setIsEarlyExitFlow] = useState(false);
 
   // Live IST Shift Guardrails
   const [istState, setIstState] = useState(() => getISTTime());
@@ -127,22 +129,36 @@ export default function EmployeeDashboard() {
     }
   };
 
-  // Trigger Clock Out Work Diary modal
+  // Trigger standard Clock Out Work Diary modal (unlocks at 6:00 PM IST)
   const handleStartClockOutFlow = () => {
     if (!istState.isAfter6PM) {
-      setError('Clock-out is locked until 06:00 PM IST. Shift in progress.');
+      setError('Standard clock-out is locked until 06:00 PM IST. If leaving early, please use "Early Clockout".');
       return;
     }
     setError('');
+    setIsEarlyExitFlow(false);
     setShowDiaryModal(true);
   };
 
-  // Confirm Clock Out from Work Diary modal
+  // Trigger Early Clockout confirmation dialog ("Do you want to log out early today?")
+  const handleStartEarlyClockOutFlow = () => {
+    setError('');
+    setShowEarlyConfirmModal(true);
+  };
+
+  // User confirms "Yes, Proceed" on the Early Logout dialog
+  const handleConfirmEarlyExit = () => {
+    setShowEarlyConfirmModal(false);
+    setIsEarlyExitFlow(true);
+    setShowDiaryModal(true);
+  };
+
+  // Confirm Clock Out from Work Diary modal (handles both standard & early checkout)
   const handleConfirmClockOut = async (workDiaryData) => {
     setShowDiaryModal(false);
     setLoading(true);
     try {
-      const res = await clockOut(workDiaryData);
+      const res = await clockOut(workDiaryData, { isEarlyClockOut: isEarlyExitFlow });
       if (!res.success) {
         setError(res.error || 'Failed to clock out');
       } else {
@@ -153,6 +169,7 @@ export default function EmployeeDashboard() {
       setError('An unexpected error occurred during clock out.');
     } finally {
       setLoading(false);
+      setIsEarlyExitFlow(false);
     }
   };
 
@@ -441,29 +458,59 @@ export default function EmployeeDashboard() {
                     </div>
                   )}
 
-                  <button
-                    onClick={handleStartClockOutFlow}
-                    className="btn-danger"
-                    disabled={loading || !istState.isAfter6PM}
-                    style={{
-                      padding: '0.9rem',
-                      fontSize: '0.95rem',
-                      width: '100%',
-                      justifyContent: 'center',
-                      opacity: !istState.isAfter6PM ? 0.6 : 1,
-                      cursor: !istState.isAfter6PM ? 'not-allowed' : 'pointer'
-                    }}
-                    title={!istState.isAfter6PM ? "Clock-Out unlocks at 06:00 PM IST" : "Submit Work Diary & Clock Out"}
-                  >
-                    {!istState.isAfter6PM ? <Clock size={20} /> : <LogOut size={20} />}
-                    <span>
-                      {loading
-                        ? 'Processing...'
-                        : !istState.isAfter6PM
-                        ? 'Clock-Out Unlocks at 06:00 PM IST'
-                        : 'Submit Work Diary & Clock Out'}
-                    </span>
-                  </button>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.75rem' }}>
+                    {/* Standard Clock Out Button (Locked until 6:00 PM IST) */}
+                    <button
+                      onClick={handleStartClockOutFlow}
+                      className="btn-danger"
+                      disabled={loading || !istState.isAfter6PM}
+                      style={{
+                        padding: '0.85rem',
+                        fontSize: '0.88rem',
+                        width: '100%',
+                        justifyContent: 'center',
+                        opacity: !istState.isAfter6PM ? 0.6 : 1,
+                        cursor: !istState.isAfter6PM ? 'not-allowed' : 'pointer'
+                      }}
+                      title={!istState.isAfter6PM ? "Clock-Out unlocks at 06:00 PM IST" : "Submit Work Diary & Clock Out"}
+                    >
+                      {!istState.isAfter6PM ? <Clock size={18} /> : <LogOut size={18} />}
+                      <span>
+                        {loading
+                          ? 'Processing...'
+                          : !istState.isAfter6PM
+                          ? 'Clock-Out Unlocks at 06:00 PM IST'
+                          : 'Submit Work Diary & Clock Out'}
+                      </span>
+                    </button>
+
+                    {/* Early Clockout (Early Log Out) Button - Always Enabled */}
+                    <button
+                      type="button"
+                      onClick={handleStartEarlyClockOutFlow}
+                      className="btn-secondary"
+                      disabled={loading}
+                      style={{
+                        padding: '0.85rem',
+                        fontSize: '0.88rem',
+                        width: '100%',
+                        justifyContent: 'center',
+                        background: 'rgba(239, 68, 68, 0.08)',
+                        borderColor: 'var(--accent-rose)',
+                        color: 'var(--accent-rose)',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.45rem',
+                        transition: 'all 0.2s ease'
+                      }}
+                      title="Early Clockout / Early Log Out with Daily Work Diary"
+                    >
+                      <LogOut size={18} style={{ color: 'var(--accent-rose)' }} />
+                      <span>Early Clockout (Early Log Out)</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -508,10 +555,84 @@ export default function EmployeeDashboard() {
         />
       )}
 
+      {/* MODAL: EARLY EXIT CONFIRMATION DIALOG */}
+      {showEarlyConfirmModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '1rem'
+        }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '440px', padding: '2rem', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: 'rgba(239, 68, 68, 0.12)',
+              color: 'var(--accent-rose)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1.25rem'
+            }}>
+              <AlertTriangle size={28} />
+            </div>
+
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+              Early Departure Confirmation
+            </h3>
+            
+            <p style={{ color: 'var(--text-main)', fontSize: '1.05rem', fontWeight: 700, margin: '0.75rem 0 1.25rem', lineHeight: 1.4 }}>
+              Do you want to log out early today?
+            </p>
+
+            <div style={{ background: 'var(--bg-input)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1.5rem', textAlign: 'left', lineHeight: 1.5 }}>
+              • You will be asked to submit your <strong>Daily Work Diary</strong>.<br />
+              • Your early clock-out time will be recorded in <strong style={{ color: 'var(--accent-rose)' }}>red colour</strong> on both your dashboard and the admin dashboard.
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setShowEarlyConfirmModal(false)}
+                className="btn-secondary"
+                style={{ flex: 1, padding: '0.75rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmEarlyExit}
+                className="btn-danger"
+                style={{
+                  flex: 1.4,
+                  padding: '0.75rem',
+                  background: 'var(--accent-rose)',
+                  borderColor: 'var(--accent-rose)',
+                  fontWeight: 700
+                }}
+              >
+                <LogOut size={16} />
+                <span>Yes, Proceed</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showDiaryModal && (
         <WorkDiaryModal
+          isEarly={isEarlyExitFlow}
           onConfirm={handleConfirmClockOut}
-          onClose={() => setShowDiaryModal(false)}
+          onClose={() => {
+            setShowDiaryModal(false);
+            setIsEarlyExitFlow(false);
+          }}
         />
       )}
 

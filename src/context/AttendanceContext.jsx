@@ -844,7 +844,8 @@ export const AttendanceProvider = ({ children }) => {
           clockOutIso: isoString,
           status: 'CLOCK_OUT',
           workDiarySubmitted: !!workDiaryData,
-          autoClosed: !!options.autoClosed
+          autoClosed: !!options.autoClosed,
+          isEarlyClockOut: !!options.isEarlyClockOut
         };
         saveRecordToSupabase(updated);
         return updated;

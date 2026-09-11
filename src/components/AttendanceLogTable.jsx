@@ -311,10 +311,35 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                     <td>
                       {record.clockOutTime ? (
                         <div>
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                            {record.clockOutTime}
+                          <div style={{
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '0.88rem',
+                            fontWeight: record.isEarlyClockOut ? 800 : 600,
+                            color: record.isEarlyClockOut ? '#ef4444' : 'var(--text-muted)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.35rem'
+                          }}>
+                            <span>{record.clockOutTime}</span>
+                            {record.isEarlyClockOut && (
+                              <span style={{
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                color: '#ef4444',
+                                background: 'rgba(239, 68, 68, 0.12)',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                padding: '1px 5px',
+                                borderRadius: '4px'
+                              }}>
+                                Early Log Out
+                              </span>
+                            )}
                           </div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-subtle)' }}>
+                          <div style={{
+                            fontSize: '0.72rem',
+                            color: record.isEarlyClockOut ? '#ef4444' : 'var(--text-subtle)',
+                            fontWeight: record.isEarlyClockOut ? 600 : 400
+                          }}>
                             {record.clockOutIso ? formatDateDDMMYYYY(record.clockOutIso) : formattedDate}
                           </div>
                         </div>

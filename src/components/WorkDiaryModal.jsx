@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BookOpen, CheckCircle, Target, FileText, LogOut, X } from 'lucide-react';
 
-export default function WorkDiaryModal({ onConfirm, onClose }) {
+export default function WorkDiaryModal({ onConfirm, onClose, isEarly = false }) {
   const [completedTasks, setCompletedTasks] = useState('');
   const [keyAccomplishments, setKeyAccomplishments] = useState('');
   const [tomorrowObjectives, setTomorrowObjectives] = useState('');
@@ -41,11 +41,13 @@ export default function WorkDiaryModal({ onConfirm, onClose }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
           <div>
             <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <BookOpen size={22} style={{ color: 'var(--accent-cyan)' }} />
-              <span>Daily Work Diary & Shift Summary</span>
+              <BookOpen size={22} style={{ color: isEarly ? 'var(--accent-rose)' : 'var(--accent-cyan)' }} />
+              <span>{isEarly ? 'Early Clock-Out & Daily Work Diary' : 'Daily Work Diary & Shift Summary'}</span>
             </h3>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-              Please update your action items and accomplishments before clocking out.
+              {isEarly
+                ? 'Recording early departure. Please update your action items and accomplishments before logging out.'
+                : 'Please update your action items and accomplishments before clocking out.'}
             </p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
@@ -115,10 +117,10 @@ export default function WorkDiaryModal({ onConfirm, onClose }) {
             <button
               type="submit"
               className="btn-danger"
-              style={{ flex: 1.5, padding: '0.75rem' }}
+              style={{ flex: 1.5, padding: '0.75rem', background: isEarly ? 'var(--accent-rose)' : undefined, borderColor: isEarly ? 'var(--accent-rose)' : undefined }}
             >
               <LogOut size={18} />
-              <span>Submit Diary & Clock Out</span>
+              <span>{isEarly ? 'Submit Diary & Early Log Out' : 'Submit Diary & Clock Out'}</span>
             </button>
           </div>
 
