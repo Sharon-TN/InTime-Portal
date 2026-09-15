@@ -1,16 +1,20 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useAttendance } from '../context/AttendanceContext';
-import { formatDateDDMMYYYY } from '../utils/geoUtils';
+import { formatDateDDMMYYYY, sortDiariesDescending } from '../utils/geoUtils';
 import { BookOpen, CheckCircle, Target, FileText, User, Calendar, Download } from 'lucide-react';
 
 export default function WorkDiaryReviewModule() {
   const { workDiaries, currentUser } = useAttendance();
   const isAdmin = currentUser?.roleType === 'ADMIN';
 
-  // Filter diaries: Admin sees all; Employee sees only their own
-  const visibleDiaries = isAdmin
-    ? workDiaries
-    : workDiaries.filter(d => d.employeeId === currentUser.id);
+  // Filter and sort diaries: Admin sees all; Employee sees only their own
+  // Strictly sorted: latest date & submission time on top, followed by older ones below
+  const visibleDiaries = useMemo(() => {
+    const filtered = isAdmin
+      ? (workDiaries || [])
+      : (workDiaries || []).filter(d => d.employeeId === currentUser?.id);
+    return sortDiariesDescending(filtered);
+  }, [workDiaries, isAdmin, currentUser?.id]);
 
   // Helper to sanitize multi-line text into clean single-line string for CSV
   const cleanCellText = (text) => {

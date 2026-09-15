@@ -225,3 +225,84 @@ export const formatDuration = (totalSeconds) => {
   const pad = (n) => String(n).padStart(2, '0');
   return `${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
 };
+
+// Normalize date string into comparable YYYY-MM-DD format
+export const toComparableDate = (dateStr) => {
+  if (!dateStr) return '';
+  const clean = String(dateStr).split('T')[0].trim();
+  // Match DD-MM-YYYY or DD/MM/YYYY
+  const dmyMatch = clean.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (dmyMatch) {
+    const d = dmyMatch[1].padStart(2, '0');
+    const m = dmyMatch[2].padStart(2, '0');
+    const y = dmyMatch[3];
+    return `${y}-${m}-${d}`;
+  }
+  // Match YYYY-MM-DD or YYYY/MM/DD
+  const ymdMatch = clean.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (ymdMatch) {
+    const y = ymdMatch[1];
+    const m = ymdMatch[2].padStart(2, '0');
+    const d = ymdMatch[3].padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return clean;
+};
+
+// Parse 12-hour or 24-hour time string into total seconds of the day for strict comparison
+export const parseTimeToSeconds = (timeStr) => {
+  if (!timeStr) return -1;
+  const match = String(timeStr).trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+  if (!match) return -1;
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const seconds = match[3] ? parseInt(match[3], 10) : 0;
+  const ampm = match[4] ? match[4].toUpperCase() : null;
+
+  if (ampm === 'PM' && hours < 12) hours += 12;
+  if (ampm === 'AM' && hours === 12) hours = 0;
+
+  return hours * 3600 + minutes * 60 + seconds;
+};
+
+// Sort diary entries strictly descending: latest date on top, then latest submission time, followed by older ones below
+export const sortDiariesDescending = (diaries) => {
+  if (!Array.isArray(diaries)) return [];
+  return [...diaries].sort((a, b) => {
+    // 1. Compare dates (YYYY-MM-DD format)
+    const dateA = toComparableDate(a.date);
+    const dateB = toComparableDate(b.date);
+    if (dateA && dateB && dateA !== dateB) {
+      return dateB.localeCompare(dateA); // Latest date first
+    }
+
+    // 2. Compare submission times if within same date
+    const timeSecA = parseTimeToSeconds(a.submittedAt);
+    const timeSecB = parseTimeToSeconds(b.submittedAt);
+    if (timeSecA >= 0 && timeSecB >= 0 && timeSecA !== timeSecB) {
+      return timeSecB - timeSecA; // Latest submission time first
+    }
+
+    // 3. Compare createdAt / created_at timestamp if present
+    const isoA = a.createdAt || a.created_at ? new Date(a.createdAt || a.created_at).getTime() : 0;
+    const isoB = b.createdAt || b.created_at ? new Date(b.createdAt || b.created_at).getTime() : 0;
+    if (isoA && isoB && !isNaN(isoA) && !isNaN(isoB) && isoA !== isoB) {
+      return isoB - isoA;
+    }
+
+    // 4. Compare ID timestamp if format is WDIARY-<timestamp>
+    const idNumA = a.id && typeof a.id === 'string' && a.id.startsWith('WDIARY-')
+      ? parseInt(a.id.replace('WDIARY-', ''), 10)
+      : 0;
+    const idNumB = b.id && typeof b.id === 'string' && b.id.startsWith('WDIARY-')
+      ? parseInt(b.id.replace('WDIARY-', ''), 10)
+      : 0;
+    if (idNumA && idNumB && !isNaN(idNumA) && !isNaN(idNumB) && idNumA !== idNumB) {
+      return idNumB - idNumA;
+    }
+
+    // 5. Fallback ID comparison
+    return (b.id || '').localeCompare(a.id || '');
+  });
+};
+

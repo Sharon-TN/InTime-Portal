@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { INITIAL_EMPLOYEES, ADMIN_USER, DEFAULT_SHIFT_POLICY, generateInitialRecords } from '../mockData';
-import { getUserCoordinates, getAddressFromCoords, checkLateness, getISTTime, getISTDateString } from '../utils/geoUtils';
+import { getUserCoordinates, getAddressFromCoords, checkLateness, getISTTime, getISTDateString, sortDiariesDescending } from '../utils/geoUtils';
 import { supabase } from '../lib/supabase';
 import { uploadFileToStorage, deleteFileFromStorage } from '../utils/storageUtils';
 
@@ -146,10 +146,17 @@ export const AttendanceProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Daily Work Diaries list
+  // Daily Work Diaries list (strictly sorted latest on top)
   const [workDiaries, setWorkDiaries] = useState(() => {
     const saved = localStorage.getItem('intime_work_diaries');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      try {
+        return sortDiariesDescending(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse saved work diaries", e);
+      }
+    }
+    return [];
   });
 
   // Helper push functions for instant database writes with error checking
@@ -405,7 +412,7 @@ export const AttendanceProvider = ({ children }) => {
           const item = row.data ? { ...row.data, id: row.id } : row;
           cloudMap.set(item.id, item);
         });
-        const cloudDiaries = Array.from(cloudMap.values());
+        const cloudDiaries = sortDiariesDescending(Array.from(cloudMap.values()));
         setWorkDiaries(cloudDiaries);
         safeSetLocalStorage('intime_work_diaries', cloudDiaries);
       }
@@ -830,9 +837,10 @@ export const AttendanceProvider = ({ children }) => {
         keyAccomplishments: workDiaryData.keyAccomplishments || '',
         tomorrowObjectives: workDiaryData.tomorrowObjectives || '',
         shiftNotes: workDiaryData.shiftNotes || '',
-        submittedAt: timeString
+        submittedAt: timeString,
+        createdAt: isoString
       };
-      setWorkDiaries(prev => [diaryRecord, ...prev]);
+      setWorkDiaries(prev => sortDiariesDescending([diaryRecord, ...prev]));
       saveWorkDiaryToSupabase(diaryRecord);
     }
 
