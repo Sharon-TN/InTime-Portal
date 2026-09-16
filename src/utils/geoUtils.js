@@ -150,7 +150,11 @@ export const getISTTime = () => {
     second,
     totalMinutes,
     isAfter6PM: totalMinutes >= 18 * 60, // 18:00 IST (06:00 PM)
-    isAfter605PM: totalMinutes >= (18 * 60 + 5) // 18:05 IST (06:05 PM)
+    isAfter605PM: totalMinutes >= (18 * 60 + 5), // 18:05 IST (06:05 PM) (kept for backwards compatibility)
+    isAtOrAfter530PM: totalMinutes >= (17 * 60 + 30), // 17:30 IST (05:30 PM)
+    isAtOrAfter545PM: totalMinutes >= (17 * 60 + 45), // 17:45 IST (05:45 PM)
+    isBetween530And545: totalMinutes >= (17 * 60 + 30) && totalMinutes < (17 * 60 + 45),
+    isBetween545And6PM: totalMinutes >= (17 * 60 + 45) && totalMinutes < (18 * 60)
   };
 };
 

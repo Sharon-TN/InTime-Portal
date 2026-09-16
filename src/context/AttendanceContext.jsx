@@ -89,8 +89,8 @@ export const AttendanceProvider = ({ children }) => {
 
         const reconciled = parsed.map(item => {
           const isPastDay = item.date && item.date < todayIst;
-          const isTodayPast605 = item.date === todayIst && istTime.isAfter605PM;
-          if (item.status === 'CLOCK_IN' && (isPastDay || isTodayPast605)) {
+          // Only reconcile unclosed shifts from previous days. Today's shifts remain active until employee logs out!
+          if (item.status === 'CLOCK_IN' && isPastDay) {
             // Check if employee had already submitted a work diary for this date
             const matchingDiary = savedDiaries.find(d => 
               d.employeeId === item.employeeId && (d.date === item.date || toComparableDate(d.date) === toComparableDate(item.date))
@@ -334,11 +334,10 @@ export const AttendanceProvider = ({ children }) => {
         recs.forEach(row => {
           let item = row.data ? { ...row.data, id: row.id } : row;
 
-          // Auto-reconcile stale/unclosed shifts from past days or today after 6:05 PM IST
+          // Auto-reconcile stale/unclosed shifts from past days only. Today's shifts remain active until employee clocks out!
           const isPastDay = item.date && item.date < todayIst;
-          const isTodayPast605 = item.date === todayIst && istTime.isAfter605PM;
 
-          if (item.status === 'CLOCK_IN' && (isPastDay || isTodayPast605)) {
+          if (item.status === 'CLOCK_IN' && isPastDay) {
             // Check if employee had already submitted a work diary for this date
             const matchingDiary = allDiaries.find(d => 
               d.employeeId === item.employeeId && (d.date === item.date || toComparableDate(d.date) === toComparableDate(item.date))
@@ -748,37 +747,8 @@ export const AttendanceProvider = ({ children }) => {
     return { success: true, user: newProfile };
   };
 
-  // Logout handler
+  // Logout handler - Clears user session without auto-forcing unverified clockout
   const logout = () => {
-    if (currentUser && currentUser.roleType === 'EMPLOYEE') {
-      const todayIst = getISTDateString();
-      const istTime = getISTTime();
-      // Only clock out on logout if shift is active and it is 6:00 PM IST or later
-      if (istTime.isAfter6PM) {
-        const activeRec = records.find(r => r.employeeId === currentUser.id && r.status === 'CLOCK_IN' && r.date === todayIst);
-        if (activeRec) {
-          const now = new Date();
-          const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-
-          const updatedRecords = records.map(r => {
-            if (r.id === activeRec.id) {
-              const updated = {
-                ...r,
-                clockOutTime: timeString,
-                clockOutIso: now.toISOString(),
-                status: 'CLOCK_OUT'
-              };
-              saveRecordToSupabase(updated);
-              return updated;
-            }
-            return r;
-          });
-
-          setRecords(updatedRecords);
-          localStorage.setItem('intime_records', JSON.stringify(updatedRecords));
-        }
-      }
-    }
     setCurrentUser(null);
     localStorage.removeItem('intime_user');
   };
@@ -931,6 +901,38 @@ export const AttendanceProvider = ({ children }) => {
     }
 
     return { success: true };
+  };
+
+  // Declare Overtime for Active Shift
+  const declareOvertime = async (overtimeRange, isOvertime = true) => {
+    if (!currentUser) return { success: false, error: "Must be logged in to declare overtime." };
+
+    const todayIst = getISTDateString();
+    const activeRec = records.find(r => r.employeeId === currentUser.id && r.status === 'CLOCK_IN' && r.date === todayIst)
+      || records.find(r => r.employeeId === currentUser.id && r.status === 'CLOCK_IN');
+
+    if (!activeRec) {
+      return { success: false, error: "No active clock-in session found." };
+    }
+
+    const updatedRec = {
+      ...activeRec,
+      isOvertime: isOvertime,
+      overtimeRange: isOvertime ? overtimeRange : null,
+      overtimeDeclaredAt: isOvertime ? new Date().toISOString() : null
+    };
+
+    const newRecords = records.map(r => r.id === activeRec.id ? updatedRec : r);
+    setRecords(newRecords);
+    safeSetLocalStorage('intime_records', newRecords);
+
+    try {
+      await saveRecordToSupabase(updatedRec);
+    } catch (e) {
+      console.warn("Overtime Supabase save warning:", e);
+    }
+
+    return { success: true, record: updatedRec };
   };
 
   // Payslip Management with Storage Integration
@@ -1161,7 +1163,8 @@ export const AttendanceProvider = ({ children }) => {
         uploadDocument,
         deleteDocument,
         applyLeave,
-        updateLeaveStatus
+        updateLeaveStatus,
+        declareOvertime
       }}
     >
       {children}

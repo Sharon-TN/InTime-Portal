@@ -8,15 +8,11 @@ export default function Header() {
   const { currentUser, currentUserTodayRecord, logout, theme, toggleTheme, setShowProfileModal } = useAttendance();
 
   const isAdmin = currentUser?.roleType === 'ADMIN';
-  const istTime = getISTTime();
-  const isEmployeeShiftLocked =
-    currentUser?.roleType === 'EMPLOYEE' &&
-    !!currentUserTodayRecord &&
-    !istTime.isAfter6PM;
+  const hasActiveShift = currentUser?.roleType === 'EMPLOYEE' && !!currentUserTodayRecord && currentUserTodayRecord.status === 'CLOCK_IN';
 
   const handleSignOutClick = () => {
-    if (isEmployeeShiftLocked) {
-      alert('Your active shift is currently in progress. Shift completion and Sign Out unlocks at 06:00 PM IST.');
+    if (hasActiveShift) {
+      alert('Your active shift is currently in progress. Please clock out by submitting your Daily Work Diary on your dashboard to complete your sign-out.');
       return;
     }
     logout();
@@ -94,13 +90,13 @@ export default function Header() {
           <button
             className="btn-secondary"
             onClick={handleSignOutClick}
-            disabled={isEmployeeShiftLocked}
-            title={isEmployeeShiftLocked ? "Sign Out unlocks at 06:00 PM IST during active shift" : "Sign out of your account"}
+            disabled={hasActiveShift}
+            title={hasActiveShift ? "Please clock out via your Daily Work Diary on your dashboard before signing out" : "Sign out of your account"}
             style={{
               padding: '0.45rem 0.85rem',
               fontSize: '0.82rem',
-              opacity: isEmployeeShiftLocked ? 0.6 : 1,
-              cursor: isEmployeeShiftLocked ? 'not-allowed' : 'pointer'
+              opacity: hasActiveShift ? 0.6 : 1,
+              cursor: hasActiveShift ? 'not-allowed' : 'pointer'
             }}
           >
             <LogOut size={15} />

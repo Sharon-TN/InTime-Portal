@@ -11,10 +11,10 @@ import LeaveManagementModule from './LeaveManagementModule';
 import WorkDiaryReviewModule from './WorkDiaryReviewModule';
 import EmployeeAnalyticsModule from './EmployeeAnalyticsModule';
 import AventiqEmployeeDetailsModule from './AventiqEmployeeDetailsModule';
-import { formatTime12Hour } from '../utils/geoUtils';
+import { formatTime12Hour, getISTDateString } from '../utils/geoUtils';
 import {
   Users, CheckCircle, Clock, AlertCircle, Settings, Trash2, Sliders, MapPin,
-  BookOpen, Calendar, FileText, Folder, Radio, ShieldCheck, BarChart3, UserX, UserMinus, AlertTriangle, FileSpreadsheet
+  BookOpen, Calendar, FileText, Folder, Radio, ShieldCheck, BarChart3, UserX, UserMinus, AlertTriangle, FileSpreadsheet, Zap
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -43,9 +43,10 @@ export default function AdminDashboard() {
   const totalEmployees = employees.length;
   const activeClockedIn = records.filter(r => r.status === 'CLOCK_IN').length;
   
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getISTDateString();
   const todayRecords = records.filter(r => r.date === todayStr);
   const lateTodayCount = todayRecords.filter(r => r.latenessStatus === 'LATE').length;
+  const overtimeCount = todayRecords.filter(r => r.isOvertime).length;
 
   const handleDeleteEmployee = (emp) => {
     setEmpToDeleteConfirm(emp);
@@ -301,6 +302,19 @@ export default function AdminDashboard() {
             <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Shift Window</div>
             <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)' }}>
               {formatTime12Hour(shiftPolicy.startTime)} - {formatTime12Hour(shiftPolicy.endTime)}
+            </div>
+          </div>
+        </div>
+
+        {/* Overtime Metric Card */}
+        <div className="glass-card" style={{ padding: '1.25rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '1rem', border: overtimeCount > 0 ? '1px solid rgba(245, 158, 11, 0.4)' : undefined }}>
+          <div style={{ padding: '0.85rem', borderRadius: 'var(--radius-sm)', background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(234, 88, 12, 0.15))', color: '#f59e0b' }}>
+            <Zap size={24} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Overtime Staff</div>
+            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: overtimeCount > 0 ? '#f59e0b' : 'var(--text-main)' }}>
+              {overtimeCount}
             </div>
           </div>
         </div>

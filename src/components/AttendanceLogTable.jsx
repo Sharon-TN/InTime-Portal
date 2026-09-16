@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Search, Calendar, User, ExternalLink, Camera, X, Clock, Trash2 } from 'lucide-react';
+import { MapPin, Search, Calendar, User, ExternalLink, Camera, X, Clock, Trash2, Zap } from 'lucide-react';
 import { getGoogleMapsUrl, formatDateDDMMYYYY, formatWorkDurationHHMM, getISTDateString } from '../utils/geoUtils';
 import { useAttendance } from '../context/AttendanceContext';
 
@@ -318,6 +318,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                             color: record.isEarlyClockOut ? '#ef4444' : 'var(--text-muted)',
                             display: 'flex',
                             alignItems: 'center',
+                            flexWrap: 'wrap',
                             gap: '0.35rem'
                           }}>
                             <span>{record.clockOutTime}</span>
@@ -334,6 +335,22 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                                 Early Log Out
                               </span>
                             )}
+                            {record.isOvertime && (
+                              <span style={{
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                color: '#d97706',
+                                background: 'rgba(245, 158, 11, 0.12)',
+                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '2px'
+                              }} title={`Overtime: ${record.overtimeRange || 'Declared'}`}>
+                                <Zap size={11} /> OT: {record.overtimeRange || 'Declared'}
+                              </span>
+                            )}
                           </div>
                           <div style={{
                             fontSize: '0.72rem',
@@ -344,9 +361,24 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                           </div>
                         </div>
                       ) : (
-                        <span style={{ fontSize: '0.78rem', color: 'var(--accent-emerald)', fontStyle: 'italic', fontWeight: 600 }}>
-                          ● Shift Active
-                        </span>
+                        <div>
+                          <span style={{
+                            fontSize: '0.78rem',
+                            color: record.isOvertime ? '#d97706' : 'var(--accent-emerald)',
+                            fontStyle: 'italic',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            {record.isOvertime ? <><Zap size={12} /> OT Active</> : '● Shift Active'}
+                          </span>
+                          {record.isOvertime && record.overtimeRange && (
+                            <div style={{ fontSize: '0.72rem', color: '#d97706', fontWeight: 600 }}>
+                              {record.overtimeRange}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </td>
 

@@ -4,6 +4,7 @@ import LiveClock from './LiveClock';
 import AttendanceLogTable from './AttendanceLogTable';
 import ClockInCameraModal from './ClockInCameraModal';
 import WorkDiaryModal from './WorkDiaryModal';
+import OvertimeModal from './OvertimeModal';
 import PayslipsModule from './PayslipsModule';
 import DocumentsModule from './DocumentsModule';
 import LeaveManagementModule from './LeaveManagementModule';
@@ -12,7 +13,7 @@ import { formatTime12Hour, getISTTime, getISTDateString } from '../utils/geoUtil
 import {
   MapPin, LogIn, LogOut, CheckCircle, Clock, Navigation, AlertTriangle, ShieldCheck,
   BookOpen, Calendar, FileText, Folder, Radio, Camera, User, UserMinus, Trash2,
-  Mail, Phone, Building, Hash, CreditCard, ShieldAlert, X
+  Mail, Phone, Building, Hash, CreditCard, ShieldAlert, X, Zap, Sparkles
 } from 'lucide-react';
 
 export default function EmployeeDashboard() {
@@ -23,6 +24,7 @@ export default function EmployeeDashboard() {
     shiftPolicy,
     clockIn,
     clockOut,
+    declareOvertime,
     deleteEmployeeAccount,
     showProfileModal,
     setShowProfileModal,
@@ -38,19 +40,19 @@ export default function EmployeeDashboard() {
   // Modals state
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [showDiaryModal, setShowDiaryModal] = useState(false);
+  const [showOvertimeModal, setShowOvertimeModal] = useState(false);
+  const [otPromptSlot, setOtPromptSlot] = useState('MANUAL'); // '530' | '545' | 'MANUAL'
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [showEarlyConfirmModal, setShowEarlyConfirmModal] = useState(false);
   const [isEarlyExitFlow, setIsEarlyExitFlow] = useState(false);
 
   // Live IST Shift Guardrails
   const [istState, setIstState] = useState(() => getISTTime());
-  const autoDiaryOpenedRef = useRef(false);
-  const autoClockOutTriggeredRef = useRef(false);
 
   const isClockedIn = !!currentUserTodayRecord;
   const userRecords = records.filter(r => r.employeeId === currentUser?.id);
 
-  // Automatic Shift Schedule Monitor: 6:00 PM Work Diary prompt & 6:05 PM Auto Clock-Out
+  // Shift Schedule Monitor: Prompts for Overtime at 5:30 PM and 5:45 PM (NO forced 6:05 PM auto-logout)
   useEffect(() => {
     const checkShiftSchedule = () => {
       const currentIst = getISTTime();
@@ -58,19 +60,29 @@ export default function EmployeeDashboard() {
 
       if (!isClockedIn) return;
 
-      // 1. At 6:00 PM IST (18:00 to 18:04), auto-open Daily Work Diary modal once
-      if (currentIst.isAfter6PM && !currentIst.isAfter605PM) {
-        if (!autoDiaryOpenedRef.current && !showDiaryModal) {
-          autoDiaryOpenedRef.current = true;
-          setShowDiaryModal(true);
-        }
-      }
+      const todayDate = getISTDateString();
+      const isAlreadyOT = !!currentUserTodayRecord?.isOvertime;
 
-      // 2. At 6:05 PM IST (>= 18:05), auto clock out if employee forgot to submit
-      if (currentIst.isAfter605PM) {
-        if (!autoClockOutTriggeredRef.current) {
-          autoClockOutTriggeredRef.current = true;
-          handleAutoClockOut();
+      // Only check scheduled prompt pop-ups if employee hasn't already declared overtime today
+      if (!isAlreadyOT) {
+        // Slot 1: 5:30 PM IST Checkpoint (17:30 to 17:44 IST)
+        const key530 = `intime_ot_prompt_530_${todayDate}_${currentUser?.id}`;
+        if (currentIst.isBetween530And545) {
+          if (!sessionStorage.getItem(key530) && !showOvertimeModal) {
+            sessionStorage.setItem(key530, 'true');
+            setOtPromptSlot('530');
+            setShowOvertimeModal(true);
+          }
+        }
+
+        // Slot 2: 5:45 PM IST Final Checkpoint (17:45 to 17:59 IST)
+        const key545 = `intime_ot_prompt_545_${todayDate}_${currentUser?.id}`;
+        if (currentIst.isBetween545And6PM) {
+          if (!sessionStorage.getItem(key545) && !showOvertimeModal) {
+            sessionStorage.setItem(key545, 'true');
+            setOtPromptSlot('545');
+            setShowOvertimeModal(true);
+          }
         }
       }
     };
@@ -78,33 +90,30 @@ export default function EmployeeDashboard() {
     checkShiftSchedule();
     const timer = setInterval(checkShiftSchedule, 5000);
     return () => clearInterval(timer);
-  }, [isClockedIn, showDiaryModal]);
+  }, [isClockedIn, currentUserTodayRecord?.isOvertime, showOvertimeModal, currentUser?.id]);
 
-  // Handle 6:05 PM IST Automatic Shift Checkout
-  const handleAutoClockOut = async () => {
-    setShowDiaryModal(false);
-    setLoading(true);
+  // Handle Overtime Confirmation
+  const handleConfirmOvertime = async (range) => {
     try {
-      const todayDate = getISTDateString();
-      const autoDiary = {
-        completedTasks: 'Standard working hours completed (Automated shift closure at 06:05 PM IST).',
-        keyAccomplishments: 'Regular daily shift fulfilled.',
-        tomorrowObjectives: 'Resume scheduled duties.',
-        shiftNotes: 'System automated checkout at 06:05 PM IST.'
-      };
-      const res = await clockOut(autoDiary, {
-        timeString: '06:00 PM',
-        isoString: `${todayDate}T18:00:00+05:30`,
-        autoClosed: true
-      });
+      setLoading(true);
+      setError('');
+      const res = await declareOvertime(range, true);
       if (res && res.success) {
-        logout();
+        setShowOvertimeModal(false);
+      } else {
+        setError(res?.error || 'Failed to register overtime range.');
       }
     } catch (err) {
-      console.error("Auto clock-out error:", err);
+      console.error("Overtime save error:", err);
+      setError("An unexpected error occurred while saving overtime.");
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle Overtime Decline
+  const handleDeclineOvertime = () => {
+    setShowOvertimeModal(false);
   };
 
   // Trigger Clock In camera modal
@@ -129,10 +138,10 @@ export default function EmployeeDashboard() {
     }
   };
 
-  // Trigger standard Clock Out Work Diary modal (unlocks at 6:00 PM IST)
+  // Trigger standard Clock Out Work Diary modal (unlocks at 6:00 PM IST or during active Overtime)
   const handleStartClockOutFlow = () => {
-    if (!istState.isAfter6PM) {
-      setError('Standard clock-out is locked until 06:00 PM IST. If leaving early, please use "Early Clockout".');
+    if (!istState.isAfter6PM && !currentUserTodayRecord?.isOvertime) {
+      setError('Standard clock-out unlocks at 06:00 PM IST. If leaving early, please use "Early Clockout".');
       return;
     }
     setError('');
@@ -433,7 +442,14 @@ export default function EmployeeDashboard() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                   <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid var(--accent-emerald)', padding: '1.25rem', borderRadius: 'var(--radius-md)' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--accent-emerald)', textTransform: 'uppercase' }}>Current Active Shift</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--accent-emerald)', textTransform: 'uppercase' }}>Current Active Shift</div>
+                      {currentUserTodayRecord?.isOvertime && (
+                        <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#f59e0b', background: 'rgba(245, 158, 11, 0.15)', padding: '2px 8px', borderRadius: '9999px', border: '1px solid rgba(245, 158, 11, 0.4)', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <Zap size={12} /> OT: {currentUserTodayRecord.overtimeRange}
+                        </span>
+                      )}
+                    </div>
                     <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.25rem' }}>
                       {currentUserTodayRecord?.clockInTime}
                     </div>
@@ -443,46 +459,123 @@ export default function EmployeeDashboard() {
                     </div>
                   </div>
 
-                  {!istState.isAfter6PM ? (
-                    <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.35)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                      <div style={{ fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem' }}>
-                        <Clock size={15} style={{ color: 'var(--accent-amber)' }} />
-                        <span>Shift Completion Policy (IST):</span>
+                  {/* Overtime Active Banner */}
+                  {currentUserTodayRecord?.isOvertime ? (
+                    <div style={{
+                      background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(234, 88, 12, 0.15) 100%)',
+                      border: '1px solid rgba(245, 158, 11, 0.4)',
+                      padding: '1rem 1.15rem',
+                      borderRadius: 'var(--radius-md)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.5rem'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Zap size={18} style={{ color: '#f59e0b' }} />
+                          <span style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-main)' }}>
+                            Overtime Active: {currentUserTodayRecord.overtimeRange}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOtPromptSlot('MANUAL');
+                            setShowOvertimeModal(true);
+                          }}
+                          className="btn-secondary"
+                          style={{ fontSize: '0.75rem', padding: '0.3rem 0.65rem', borderColor: 'rgba(245, 158, 11, 0.4)' }}
+                        >
+                          Edit OT Range
+                        </button>
                       </div>
-                      Clock-out and Work Diary submission unlock at <strong>06:00 PM IST</strong>. At 6:00 PM, your Daily Work Diary will appear automatically. If unattended, automatic shift checkout occurs at <strong>06:05 PM IST</strong>.
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                        Your session remains unlocked and logged in. When you finish work, click <strong>Submit Work Diary & Clock Out</strong> to conclude your shift and sign out.
+                      </div>
                     </div>
                   ) : (
-                    <div style={{ background: 'var(--bg-input)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                      <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.15rem' }}>Mandatory Clock-Out Protocol:</div>
-                      Please submit your <strong>Daily Work Diary</strong> (tasks completed & tomorrow objectives) before shift checkout.
+                    /* Overtime Declaration Opportunity Banner (visible from 5:30 PM onwards or manually anytime) */
+                    <div style={{
+                      background: istState.isAtOrAfter530PM ? 'rgba(245, 158, 11, 0.08)' : 'var(--bg-input)',
+                      border: istState.isAtOrAfter530PM ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid var(--border-color)',
+                      padding: '0.85rem 1rem',
+                      borderRadius: 'var(--radius-md)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '0.6rem'
+                    }}>
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                        <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>
+                          {istState.isAtOrAfter530PM ? 'Shift Ending Soon:' : 'Overtime Extension:'}
+                        </span>{' '}
+                        Planning to work late past 6:00 PM today?
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOtPromptSlot('MANUAL');
+                          setShowOvertimeModal(true);
+                        }}
+                        className="btn-primary"
+                        style={{
+                          fontSize: '0.78rem',
+                          padding: '0.35rem 0.75rem',
+                          background: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)',
+                          borderColor: '#f59e0b',
+                          gap: '0.35rem'
+                        }}
+                      >
+                        <Zap size={14} />
+                        <span>Declare Overtime Range</span>
+                      </button>
                     </div>
                   )}
 
+                  {/* Shift Policy Information */}
+                  <div style={{ background: 'var(--bg-input)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem' }}>
+                      <Clock size={15} style={{ color: 'var(--accent-amber)' }} />
+                      <span>Shift & Checkout Policy (IST):</span>
+                    </div>
+                    Standard shift concludes at <strong>06:00 PM IST</strong>. To complete checkout and sign out, submit your <strong>Daily Work Diary</strong>. If working overtime, your session stays active until you manually clock out.
+                  </div>
+
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.75rem' }}>
-                    {/* Standard Clock Out Button (Locked until 6:00 PM IST) */}
-                    <button
-                      onClick={handleStartClockOutFlow}
-                      className="btn-danger"
-                      disabled={loading || !istState.isAfter6PM}
-                      style={{
-                        padding: '0.85rem',
-                        fontSize: '0.88rem',
-                        width: '100%',
-                        justifyContent: 'center',
-                        opacity: !istState.isAfter6PM ? 0.6 : 1,
-                        cursor: !istState.isAfter6PM ? 'not-allowed' : 'pointer'
-                      }}
-                      title={!istState.isAfter6PM ? "Clock-Out unlocks at 06:00 PM IST" : "Submit Work Diary & Clock Out"}
-                    >
-                      {!istState.isAfter6PM ? <Clock size={18} /> : <LogOut size={18} />}
-                      <span>
-                        {loading
-                          ? 'Processing...'
-                          : !istState.isAfter6PM
-                          ? 'Clock-Out Unlocks at 06:00 PM IST'
-                          : 'Submit Work Diary & Clock Out'}
-                      </span>
-                    </button>
+                    {/* Standard / Overtime Clock Out Button */}
+                    {(() => {
+                      const canStandardClockOut = istState.isAfter6PM || currentUserTodayRecord?.isOvertime;
+                      return (
+                        <button
+                          onClick={handleStartClockOutFlow}
+                          className="btn-danger"
+                          disabled={loading || !canStandardClockOut}
+                          style={{
+                            padding: '0.85rem',
+                            fontSize: '0.88rem',
+                            width: '100%',
+                            justifyContent: 'center',
+                            opacity: !canStandardClockOut ? 0.6 : 1,
+                            cursor: !canStandardClockOut ? 'not-allowed' : 'pointer',
+                            background: currentUserTodayRecord?.isOvertime ? 'linear-gradient(135deg, #f59e0b, #ea580c)' : undefined,
+                            borderColor: currentUserTodayRecord?.isOvertime ? '#f59e0b' : undefined
+                          }}
+                          title={!canStandardClockOut ? "Clock-Out unlocks at 06:00 PM IST" : "Submit Work Diary & Clock Out"}
+                        >
+                          {!canStandardClockOut ? <Clock size={18} /> : (currentUserTodayRecord?.isOvertime ? <Zap size={18} /> : <LogOut size={18} />)}
+                          <span>
+                            {loading
+                              ? 'Processing...'
+                              : currentUserTodayRecord?.isOvertime
+                              ? 'Submit Work Diary & Clock Out (OT)'
+                              : !istState.isAfter6PM
+                              ? 'Clock-Out Unlocks at 06:00 PM IST'
+                              : 'Submit Work Diary & Clock Out'}
+                          </span>
+                        </button>
+                      );
+                    })()}
 
                     {/* Early Clockout (Early Log Out) Button - Always Enabled */}
                     <button
@@ -633,6 +726,18 @@ export default function EmployeeDashboard() {
             setShowDiaryModal(false);
             setIsEarlyExitFlow(false);
           }}
+        />
+      )}
+
+      {/* OVERTIME DECLARATION MODAL (5:30 PM & 5:45 PM Prompts or Manual Trigger) */}
+      {showOvertimeModal && (
+        <OvertimeModal
+          isOpen={showOvertimeModal}
+          promptSlot={otPromptSlot}
+          initialRange={currentUserTodayRecord?.overtimeRange || ''}
+          onConfirmOvertime={handleConfirmOvertime}
+          onDeclineOvertime={handleDeclineOvertime}
+          onClose={() => setShowOvertimeModal(false)}
         />
       )}
 
