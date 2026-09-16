@@ -223,7 +223,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                 };
 
                 const formattedDate = formatDateDDMMYYYY(record.date || (record.clockInIso ? record.clockInIso.split('T')[0] : ''));
-                const workDurationStr = formatWorkDurationHHMM(record.clockInIso, record.clockOutIso);
+                const workDurationStr = formatWorkDurationHHMM(record.clockInIso, record.clockOutIso, record.date, record.clockInTime, record.clockOutTime);
 
                 return (
                   <tr key={record.id}>
@@ -494,7 +494,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Work Duration:</span>
                 <span style={{ fontWeight: 800, color: 'var(--primary)', fontFamily: 'var(--font-mono)' }}>
-                  {formatWorkDurationHHMM(activeSelfieRecord.clockInIso, activeSelfieRecord.clockOutIso)}
+                  {formatWorkDurationHHMM(activeSelfieRecord.clockInIso, activeSelfieRecord.clockOutIso, activeSelfieRecord.date, activeSelfieRecord.clockInTime, activeSelfieRecord.clockOutTime)}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>

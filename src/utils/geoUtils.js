@@ -166,18 +166,34 @@ export const getISTDateString = () => {
 };
 
 // Calculate and format shift work duration into HH:MM (Hours:Minutes) format
-export const formatWorkDurationHHMM = (clockInIso, clockOutIso) => {
-  if (!clockInIso) return '00:00';
-  const start = new Date(clockInIso);
-  const end = clockOutIso ? new Date(clockOutIso) : new Date();
+export const formatWorkDurationHHMM = (clockInIso, clockOutIso, date = null, clockInTime = null, clockOutTime = null) => {
+  let startMs = clockInIso ? new Date(clockInIso).getTime() : 0;
+  let endMs = clockOutIso ? new Date(clockOutIso).getTime() : 0;
 
-  const diffMs = end - start;
-  if (diffMs <= 0) return '00:00';
+  // Robust fallback: if ISO is missing/invalid, parse from 12-hour/24-hour time strings
+  if ((!startMs || isNaN(startMs)) && clockInTime) {
+    const startSec = parseTimeToSeconds(clockInTime);
+    if (startSec >= 0) {
+      startMs = startSec * 1000;
+      if ((!endMs || isNaN(endMs)) && clockOutTime) {
+        const endSec = parseTimeToSeconds(clockOutTime);
+        if (endSec >= 0) {
+          endMs = endSec * 1000;
+        }
+      }
+    }
+  }
+
+  if (!startMs || isNaN(startMs)) return '00:00 hrs';
+
+  const end = (endMs && !isNaN(endMs)) ? endMs : (clockOutIso ? new Date(clockOutIso).getTime() : Date.now());
+  const diffMs = end - startMs;
+  if (diffMs <= 0) return '00:00 hrs';
 
   let totalMinutes = Math.floor(diffMs / (1000 * 60));
 
   // Cap unclosed / stale active shifts at 9 hours max to prevent runaway 43+ hr counters
-  if (!clockOutIso && totalMinutes > 9 * 60) {
+  if (!clockOutIso && !clockOutTime && totalMinutes > 9 * 60) {
     totalMinutes = 9 * 60; // 09:00 hrs cap
   }
 
