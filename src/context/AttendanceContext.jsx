@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { INITIAL_EMPLOYEES, ADMIN_USER, DEFAULT_SHIFT_POLICY, generateInitialRecords } from '../mockData';
-import { getUserCoordinates, getAddressFromCoords, checkLateness, getISTTime, getISTDateString, sortDiariesDescending } from '../utils/geoUtils';
+import { getUserCoordinates, getAddressFromCoords, checkLateness, getISTTime, getISTDateString, sortDiariesDescending, toComparableDate, parseTimeToSeconds } from '../utils/geoUtils';
 import { supabase } from '../lib/supabase';
 import { uploadFileToStorage, deleteFileFromStorage } from '../utils/storageUtils';
 
@@ -78,16 +78,38 @@ export const AttendanceProvider = ({ children }) => {
     if (!localStorage.getItem(PURGE_KEY)) {
       return [];
     }
-    const saved = localStorage.getItem('intime_records');
+        const saved = localStorage.getItem('intime_records');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         const todayIst = getISTDateString();
         const istTime = getISTTime();
+        const savedDiariesRaw = localStorage.getItem('intime_work_diaries');
+        const savedDiaries = savedDiariesRaw ? JSON.parse(savedDiariesRaw) : [];
+
         const reconciled = parsed.map(item => {
           const isPastDay = item.date && item.date < todayIst;
           const isTodayPast605 = item.date === todayIst && istTime.isAfter605PM;
           if (item.status === 'CLOCK_IN' && (isPastDay || isTodayPast605)) {
+            // Check if employee had already submitted a work diary for this date
+            const matchingDiary = savedDiaries.find(d => 
+              d.employeeId === item.employeeId && (d.date === item.date || toComparableDate(d.date) === toComparableDate(item.date))
+            );
+
+            if (matchingDiary && matchingDiary.submittedAt) {
+              const submittedTime = matchingDiary.submittedAt;
+              const isEarly = parseTimeToSeconds(submittedTime) < parseTimeToSeconds('06:00 PM');
+              return {
+                ...item,
+                status: 'CLOCK_OUT',
+                clockOutTime: submittedTime,
+                clockOutIso: matchingDiary.createdAt || `${item.date}T${submittedTime}`,
+                workDiarySubmitted: true,
+                isEarlyClockOut: isEarly,
+                autoClosed: false
+              };
+            }
+
             return {
               ...item,
               status: 'CLOCK_OUT',
@@ -294,7 +316,16 @@ export const AttendanceProvider = ({ children }) => {
   const syncRecords = async () => {
     try {
       if (!supabase) return;
-      const { data: recs } = await supabase.from('attendance_records').select('*');
+      const [recsResult, diariesResult] = await Promise.allSettled([
+        supabase.from('attendance_records').select('*'),
+        supabase.from('work_diaries').select('*')
+      ]);
+
+      const recs = recsResult.status === 'fulfilled' && recsResult.value.data ? recsResult.value.data : null;
+      const allDiaries = diariesResult.status === 'fulfilled' && diariesResult.value.data 
+        ? diariesResult.value.data.map(row => row.data ? { ...row.data, id: row.id } : row).filter(d => d.id !== 'SYSTEM_SHIFT_POLICY')
+        : [];
+
       if (recs !== null) {
         const cloudMap = new Map();
         const todayIst = getISTDateString();
@@ -308,13 +339,32 @@ export const AttendanceProvider = ({ children }) => {
           const isTodayPast605 = item.date === todayIst && istTime.isAfter605PM;
 
           if (item.status === 'CLOCK_IN' && (isPastDay || isTodayPast605)) {
-            item = {
-              ...item,
-              status: 'CLOCK_OUT',
-              clockOutTime: '06:00 PM',
-              clockOutIso: `${item.date}T18:00:00+05:30`,
-              autoClosed: true
-            };
+            // Check if employee had already submitted a work diary for this date
+            const matchingDiary = allDiaries.find(d => 
+              d.employeeId === item.employeeId && (d.date === item.date || toComparableDate(d.date) === toComparableDate(item.date))
+            );
+
+            if (matchingDiary && matchingDiary.submittedAt) {
+              const submittedTime = matchingDiary.submittedAt;
+              const isEarly = parseTimeToSeconds(submittedTime) < parseTimeToSeconds('06:00 PM');
+              item = {
+                ...item,
+                status: 'CLOCK_OUT',
+                clockOutTime: submittedTime,
+                clockOutIso: matchingDiary.createdAt || `${item.date}T${submittedTime}`,
+                workDiarySubmitted: true,
+                isEarlyClockOut: isEarly,
+                autoClosed: false
+              };
+            } else {
+              item = {
+                ...item,
+                status: 'CLOCK_OUT',
+                clockOutTime: '06:00 PM',
+                clockOutIso: `${item.date}T18:00:00+05:30`,
+                autoClosed: true
+              };
+            }
             saveRecordToSupabase(item);
           }
 
@@ -827,6 +877,7 @@ export const AttendanceProvider = ({ children }) => {
     const isoString = options.isoString || now.toISOString();
     const todayStr = options.date || activeRec.date || todayIst;
 
+    let diarySavePromise = Promise.resolve();
     if (workDiaryData) {
       const diaryRecord = {
         id: `WDIARY-${Date.now()}`,
@@ -841,9 +892,10 @@ export const AttendanceProvider = ({ children }) => {
         createdAt: isoString
       };
       setWorkDiaries(prev => sortDiariesDescending([diaryRecord, ...prev]));
-      saveWorkDiaryToSupabase(diaryRecord);
+      diarySavePromise = saveWorkDiaryToSupabase(diaryRecord);
     }
 
+    let updatedTargetRecord = null;
     const newRecords = records.map(r => {
       if (r.id === activeRec.id) {
         const updated = {
@@ -855,13 +907,29 @@ export const AttendanceProvider = ({ children }) => {
           autoClosed: !!options.autoClosed,
           isEarlyClockOut: !!options.isEarlyClockOut
         };
-        saveRecordToSupabase(updated);
+        updatedTargetRecord = updated;
         return updated;
       }
       return r;
     });
 
     setRecords(newRecords);
+    safeSetLocalStorage('intime_records', newRecords);
+
+    // Guaranteed persistence: Await Supabase writes before completing clockOut
+    try {
+      if (updatedTargetRecord) {
+        await Promise.allSettled([
+          diarySavePromise,
+          saveRecordToSupabase(updatedTargetRecord)
+        ]);
+      } else {
+        await diarySavePromise;
+      }
+    } catch (err) {
+      console.warn("Supabase persistence warning during clockOut:", err);
+    }
+
     return { success: true };
   };
 
