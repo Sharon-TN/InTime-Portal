@@ -132,12 +132,12 @@ export default function OvertimeModal({
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>
                 Shift Overtime Notice
               </h3>
               <span
                 style={{
-                  fontSize: '0.7rem',
+                  fontSize: '0.72rem',
                   fontWeight: 700,
                   background: 'rgba(245, 158, 11, 0.18)',
                   color: '#f59e0b',
@@ -149,10 +149,36 @@ export default function OvertimeModal({
                 {getSlotTitle()}
               </span>
             </div>
-            <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', margin: '0.2rem 0 0 0' }}>
-              Standard shift ends at <strong>06:00 PM IST</strong>. Do you plan to work overtime today?
+            <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', margin: '0.2rem 0 0 0' }}>
+              Standard shift ends at <strong>06:00 PM IST</strong>.
             </p>
           </div>
+        </div>
+
+        {/* Big prominent Question heading */}
+        <div style={{
+          marginBottom: '1.25rem',
+          padding: '0.9rem 1.15rem',
+          borderRadius: 'var(--radius-md)',
+          background: 'rgba(245, 158, 11, 0.08)',
+          border: '1px solid rgba(245, 158, 11, 0.25)'
+        }}>
+          <h2 style={{
+            fontSize: '1.4rem',
+            fontWeight: 800,
+            color: 'var(--text-main)',
+            margin: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.55rem',
+            letterSpacing: '-0.01em'
+          }}>
+            <Zap size={22} style={{ color: '#f59e0b' }} />
+            Do you want to work overtime?
+          </h2>
+          <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', margin: '0.35rem 0 0 0' }}>
+            Choose whether to extend your active session past 06:00 PM today.
+          </p>
         </div>
 
         {errorMsg && (

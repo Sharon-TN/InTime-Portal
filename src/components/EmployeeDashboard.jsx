@@ -459,23 +459,41 @@ export default function EmployeeDashboard() {
                     </div>
                   </div>
 
-                  {/* Overtime Active Banner */}
+                  {/* Overtime Active Banner or Declaration Button */}
                   {currentUserTodayRecord?.isOvertime ? (
                     <div style={{
                       background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(234, 88, 12, 0.15) 100%)',
-                      border: '1px solid rgba(245, 158, 11, 0.4)',
-                      padding: '1rem 1.15rem',
+                      border: '1.5px solid rgba(245, 158, 11, 0.45)',
+                      padding: '1.15rem 1.35rem',
                       borderRadius: 'var(--radius-md)',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '0.5rem'
+                      gap: '0.6rem',
+                      boxShadow: '0 4px 15px rgba(245, 158, 11, 0.1)'
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <Zap size={18} style={{ color: '#f59e0b' }} />
-                          <span style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-main)' }}>
-                            Overtime Active: {currentUserTodayRecord.overtimeRange}
-                          </span>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.6rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                          <div style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '10px',
+                            background: 'linear-gradient(135deg, #f59e0b, #ea580c)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#fff',
+                            boxShadow: '0 2px 8px rgba(245, 158, 11, 0.4)'
+                          }}>
+                            <Zap size={20} />
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)' }}>
+                              Overtime Active: {currentUserTodayRecord.overtimeRange}
+                            </div>
+                            <div style={{ fontSize: '0.76rem', color: '#f59e0b', fontWeight: 700 }}>
+                              ● Extended Shift in Progress
+                            </div>
+                          </div>
                         </div>
                         <button
                           type="button"
@@ -484,52 +502,112 @@ export default function EmployeeDashboard() {
                             setShowOvertimeModal(true);
                           }}
                           className="btn-secondary"
-                          style={{ fontSize: '0.75rem', padding: '0.3rem 0.65rem', borderColor: 'rgba(245, 158, 11, 0.4)' }}
+                          style={{
+                            fontSize: '0.85rem',
+                            fontWeight: 700,
+                            padding: '0.45rem 0.95rem',
+                            borderColor: 'rgba(245, 158, 11, 0.5)',
+                            background: 'rgba(245, 158, 11, 0.1)',
+                            color: '#f59e0b',
+                            borderRadius: 'var(--radius-sm)'
+                          }}
                         >
                           Edit OT Range
                         </button>
                       </div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
                         Your session remains unlocked and logged in. When you finish work, click <strong>Submit Work Diary & Clock Out</strong> to conclude your shift and sign out.
                       </div>
                     </div>
                   ) : (
-                    /* Overtime Declaration Opportunity Banner (visible from 5:30 PM onwards or manually anytime) */
+                    /* Overtime Declaration Opportunity Banner (visible all the time, disabled until 5:30 PM IST) */
                     <div style={{
-                      background: istState.isAtOrAfter530PM ? 'rgba(245, 158, 11, 0.08)' : 'var(--bg-input)',
-                      border: istState.isAtOrAfter530PM ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid var(--border-color)',
-                      padding: '0.85rem 1rem',
+                      background: istState.isAtOrAfter530PM 
+                        ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(234, 88, 12, 0.08) 100%)' 
+                        : 'var(--bg-input)',
+                      border: istState.isAtOrAfter530PM 
+                        ? '1.5px solid rgba(245, 158, 11, 0.45)' 
+                        : '1px solid var(--border-color)',
+                      padding: '1.15rem 1.35rem',
                       borderRadius: 'var(--radius-md)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       flexWrap: 'wrap',
-                      gap: '0.6rem'
+                      gap: '1rem',
+                      boxShadow: istState.isAtOrAfter530PM ? '0 4px 18px rgba(245, 158, 11, 0.15)' : 'none',
+                      transition: 'all 0.3s ease'
                     }}>
-                      <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                        <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>
-                          {istState.isAtOrAfter530PM ? 'Shift Ending Soon:' : 'Overtime Extension:'}
-                        </span>{' '}
-                        Planning to work late past 6:00 PM today?
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                        <div style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '12px',
+                          background: istState.isAtOrAfter530PM 
+                            ? 'linear-gradient(135deg, #f59e0b, #ea580c)' 
+                            : 'var(--border-color)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: istState.isAtOrAfter530PM ? '#ffffff' : 'var(--text-muted)',
+                          boxShadow: istState.isAtOrAfter530PM ? '0 4px 12px rgba(245, 158, 11, 0.35)' : 'none',
+                          flexShrink: 0
+                        }}>
+                          <Zap size={22} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.15rem' }}>
+                            {istState.isAtOrAfter530PM ? 'Shift Ending Soon — Plan to Work Overtime?' : 'Overtime Declaration'}
+                          </div>
+                          <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                            {istState.isAtOrAfter530PM
+                              ? 'Standard shift ends at 06:00 PM. Declare your overtime range to keep your session active.'
+                              : 'Overtime range declaration unlocks daily at 05:30 PM IST.'}
+                          </div>
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOtPromptSlot('MANUAL');
-                          setShowOvertimeModal(true);
-                        }}
-                        className="btn-primary"
-                        style={{
-                          fontSize: '0.78rem',
-                          padding: '0.35rem 0.75rem',
-                          background: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)',
-                          borderColor: '#f59e0b',
-                          gap: '0.35rem'
-                        }}
-                      >
-                        <Zap size={14} />
-                        <span>Declare Overtime Range</span>
-                      </button>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.35rem' }}>
+                        <button
+                          type="button"
+                          disabled={!istState.isAtOrAfter530PM}
+                          onClick={() => {
+                            if (istState.isAtOrAfter530PM) {
+                              setOtPromptSlot('MANUAL');
+                              setShowOvertimeModal(true);
+                            }
+                          }}
+                          className={istState.isAtOrAfter530PM ? 'btn-primary' : ''}
+                          style={{
+                            fontSize: '0.98rem',
+                            fontWeight: 800,
+                            padding: '0.75rem 1.4rem',
+                            borderRadius: 'var(--radius-sm)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            transition: 'all 0.2s ease',
+                            cursor: istState.isAtOrAfter530PM ? 'pointer' : 'not-allowed',
+                            background: istState.isAtOrAfter530PM
+                              ? 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)'
+                              : 'rgba(245, 158, 11, 0.12)',
+                            color: istState.isAtOrAfter530PM ? '#ffffff' : 'var(--text-muted)',
+                            border: istState.isAtOrAfter530PM ? '1.5px solid #f59e0b' : '1px solid rgba(245, 158, 11, 0.25)',
+                            boxShadow: istState.isAtOrAfter530PM ? '0 6px 18px rgba(245, 158, 11, 0.4)' : 'none',
+                            opacity: istState.isAtOrAfter530PM ? 1 : 0.65
+                          }}
+                          title={!istState.isAtOrAfter530PM ? 'Overtime declaration unlocks at 05:30 PM IST' : 'Click to declare overtime range'}
+                        >
+                          <Zap size={18} />
+                          <span>Declare Overtime Range</span>
+                        </button>
+
+                        {!istState.isAtOrAfter530PM && (
+                          <span style={{ fontSize: '0.74rem', color: 'var(--text-subtle)', fontWeight: 600 }}>
+                            🔒 Unlocks at 05:30 PM IST
+                          </span>
+                        )}
+                      </div>
                     </div>
                   )}
 
