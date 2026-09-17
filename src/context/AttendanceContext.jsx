@@ -27,7 +27,7 @@ const safeSetLocalStorage = (key, value) => {
       try {
         localStorage.removeItem('intime_employees');
         localStorage.removeItem('intime_records');
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 };
@@ -78,7 +78,7 @@ export const AttendanceProvider = ({ children }) => {
     if (!localStorage.getItem(PURGE_KEY)) {
       return [];
     }
-        const saved = localStorage.getItem('intime_records');
+    const saved = localStorage.getItem('intime_records');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -89,15 +89,16 @@ export const AttendanceProvider = ({ children }) => {
 
         const reconciled = parsed.map(item => {
           const isPastDay = item.date && item.date < todayIst;
-          // Only reconcile unclosed shifts from previous days. Today's shifts remain active until employee logs out!
-          if (item.status === 'CLOCK_IN' && isPastDay) {
-            // Check if employee had already submitted a work diary for this date
-            const matchingDiary = savedDiaries.find(d => 
-              d.employeeId === item.employeeId && (d.date === item.date || toComparableDate(d.date) === toComparableDate(item.date))
-            );
+          
+          // Check if employee had submitted a work diary for this date
+          const matchingDiary = savedDiaries.find(d =>
+            d.employeeId === item.employeeId && (d.date === item.date || toComparableDate(d.date) === toComparableDate(item.date))
+          );
 
-            if (matchingDiary && matchingDiary.submittedAt) {
-              const submittedTime = matchingDiary.submittedAt;
+          if (matchingDiary && matchingDiary.submittedAt) {
+            const submittedTime = matchingDiary.submittedAt;
+            // If shift was auto-closed at 6PM, unclosed, or differs from diary submission, reconcile with diary
+            if (item.autoClosed || item.status === 'CLOCK_IN' || (item.clockOutTime === '06:00 PM' && submittedTime !== '06:00 PM')) {
               const isEarly = parseTimeToSeconds(submittedTime) < parseTimeToSeconds('06:00 PM');
               return {
                 ...item,
@@ -109,7 +110,10 @@ export const AttendanceProvider = ({ children }) => {
                 autoClosed: false
               };
             }
+          }
 
+          // Only reconcile unclosed shifts from previous days without diaries
+          if (item.status === 'CLOCK_IN' && isPastDay) {
             return {
               ...item,
               status: 'CLOCK_OUT',
@@ -322,7 +326,7 @@ export const AttendanceProvider = ({ children }) => {
       ]);
 
       const recs = recsResult.status === 'fulfilled' && recsResult.value.data ? recsResult.value.data : null;
-      const allDiaries = diariesResult.status === 'fulfilled' && diariesResult.value.data 
+      const allDiaries = diariesResult.status === 'fulfilled' && diariesResult.value.data
         ? diariesResult.value.data.map(row => row.data ? { ...row.data, id: row.id } : row).filter(d => d.id !== 'SYSTEM_SHIFT_POLICY')
         : [];
 
@@ -334,17 +338,16 @@ export const AttendanceProvider = ({ children }) => {
         recs.forEach(row => {
           let item = row.data ? { ...row.data, id: row.id } : row;
 
-          // Auto-reconcile stale/unclosed shifts from past days only. Today's shifts remain active until employee clocks out!
+          // Auto-reconcile with submitted work diaries
           const isPastDay = item.date && item.date < todayIst;
 
-          if (item.status === 'CLOCK_IN' && isPastDay) {
-            // Check if employee had already submitted a work diary for this date
-            const matchingDiary = allDiaries.find(d => 
-              d.employeeId === item.employeeId && (d.date === item.date || toComparableDate(d.date) === toComparableDate(item.date))
-            );
+          const matchingDiary = allDiaries.find(d =>
+            d.employeeId === item.employeeId && (d.date === item.date || toComparableDate(d.date) === toComparableDate(item.date))
+          );
 
-            if (matchingDiary && matchingDiary.submittedAt) {
-              const submittedTime = matchingDiary.submittedAt;
+          if (matchingDiary && matchingDiary.submittedAt) {
+            const submittedTime = matchingDiary.submittedAt;
+            if (item.autoClosed || item.status === 'CLOCK_IN' || (item.clockOutTime === '06:00 PM' && submittedTime !== '06:00 PM')) {
               const isEarly = parseTimeToSeconds(submittedTime) < parseTimeToSeconds('06:00 PM');
               item = {
                 ...item,
@@ -355,15 +358,16 @@ export const AttendanceProvider = ({ children }) => {
                 isEarlyClockOut: isEarly,
                 autoClosed: false
               };
-            } else {
-              item = {
-                ...item,
-                status: 'CLOCK_OUT',
-                clockOutTime: '06:00 PM',
-                clockOutIso: `${item.date}T18:00:00+05:30`,
-                autoClosed: true
-              };
+              saveRecordToSupabase(item);
             }
+          } else if (item.status === 'CLOCK_IN' && isPastDay) {
+            item = {
+              ...item,
+              status: 'CLOCK_OUT',
+              clockOutTime: '06:00 PM',
+              clockOutIso: `${item.date}T18:00:00+05:30`,
+              autoClosed: true
+            };
             saveRecordToSupabase(item);
           }
 
@@ -482,16 +486,11 @@ export const AttendanceProvider = ({ children }) => {
     ]);
   };
 
-  // Push local storage profiles up to Supabase on load (for profiles created before table creation)
+  // Push local storage employee profiles up to Supabase on load (for newly seeded profiles)
   useEffect(() => {
     if (employees && employees.length > 0) {
       employees.forEach(emp => {
         saveEmployeeToSupabase(emp);
-      });
-    }
-    if (records && records.length > 0) {
-      records.forEach(rec => {
-        saveRecordToSupabase(rec);
       });
     }
   }, []);
@@ -837,7 +836,7 @@ export const AttendanceProvider = ({ children }) => {
     const todayIst = getISTDateString();
     const activeRec = records.find(r => r.employeeId === currentUser.id && r.status === 'CLOCK_IN' && r.date === todayIst)
       || records.find(r => r.employeeId === currentUser.id && r.status === 'CLOCK_IN');
-    
+
     if (!activeRec) {
       return { success: false, error: "No active clock-in session found." };
     }

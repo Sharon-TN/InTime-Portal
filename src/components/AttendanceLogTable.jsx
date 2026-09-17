@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { MapPin, Search, Calendar, User, ExternalLink, Camera, X, Clock, Trash2, Zap } from 'lucide-react';
-import { getGoogleMapsUrl, formatDateDDMMYYYY, formatWorkDurationHHMM, getISTDateString } from '../utils/geoUtils';
+import { getGoogleMapsUrl, formatDateDDMMYYYY, formatWorkDurationHHMM, getISTDateString, toComparableDate, parseTimeToSeconds } from '../utils/geoUtils';
 import { useAttendance } from '../context/AttendanceContext';
 
 export default function AttendanceLogTable({ records = [], employees = [], title = "Attendance Logs", isAdmin: propIsAdmin }) {
-  const { currentUser, deleteAttendanceRecord, employees: ctxEmployees } = useAttendance();
+  const { currentUser, deleteAttendanceRecord, employees: ctxEmployees, workDiaries = [] } = useAttendance();
   const allEmployees = (employees && employees.length > 0) ? employees : (ctxEmployees || []);
   const isAdmin = currentUser?.roleType === 'ADMIN' || !!propIsAdmin;
 
@@ -222,8 +222,27 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                   role: 'Employee'
                 };
 
-                const formattedDate = formatDateDDMMYYYY(record.date || (record.clockInIso ? record.clockInIso.split('T')[0] : ''));
-                const workDurationStr = formatWorkDurationHHMM(record.clockInIso, record.clockOutIso, record.date, record.clockInTime, record.clockOutTime);
+                const recDate = record.date || (record.clockInIso ? record.clockInIso.split('T')[0] : '');
+                const formattedDate = formatDateDDMMYYYY(recDate);
+
+                // Cross-reference work diary if record was autoClosed, unclosed, or differs from diary submission
+                const matchingDiary = workDiaries.find(d =>
+                  d.employeeId === record.employeeId && (d.date === recDate || toComparableDate(d.date) === toComparableDate(recDate))
+                );
+
+                const effectiveClockOutTime = (matchingDiary && matchingDiary.submittedAt && (record.autoClosed || !record.clockOutTime || (record.clockOutTime === '06:00 PM' && matchingDiary.submittedAt !== '06:00 PM')))
+                  ? matchingDiary.submittedAt
+                  : record.clockOutTime;
+
+                const effectiveClockOutIso = (matchingDiary && matchingDiary.submittedAt && (record.autoClosed || !record.clockOutTime || (record.clockOutTime === '06:00 PM' && matchingDiary.submittedAt !== '06:00 PM')))
+                  ? (matchingDiary.createdAt || `${recDate}T${matchingDiary.submittedAt}`)
+                  : record.clockOutIso;
+
+                const effectiveIsEarlyClockOut = (matchingDiary && matchingDiary.submittedAt && (record.autoClosed || record.clockOutTime === '06:00 PM'))
+                  ? (parseTimeToSeconds(effectiveClockOutTime) < parseTimeToSeconds('06:00 PM'))
+                  : !!record.isEarlyClockOut;
+
+                const workDurationStr = formatWorkDurationHHMM(record.clockInIso, effectiveClockOutIso, recDate, record.clockInTime, effectiveClockOutTime);
 
                 return (
                   <tr key={record.id}>
@@ -309,20 +328,20 @@ export default function AttendanceLogTable({ records = [], employees = [], title
 
                     {/* Clock Out */}
                     <td>
-                      {record.clockOutTime ? (
+                      {effectiveClockOutTime ? (
                         <div>
                           <div style={{
                             fontFamily: 'var(--font-mono)',
                             fontSize: '0.88rem',
-                            fontWeight: record.isEarlyClockOut ? 800 : 600,
-                            color: record.isEarlyClockOut ? '#ef4444' : 'var(--text-muted)',
+                            fontWeight: effectiveIsEarlyClockOut ? 800 : 600,
+                            color: effectiveIsEarlyClockOut ? '#ef4444' : 'var(--text-muted)',
                             display: 'flex',
                             alignItems: 'center',
                             flexWrap: 'wrap',
                             gap: '0.35rem'
                           }}>
-                            <span>{record.clockOutTime}</span>
-                            {record.isEarlyClockOut && (
+                            <span>{effectiveClockOutTime}</span>
+                            {effectiveIsEarlyClockOut && (
                               <span style={{
                                 fontSize: '0.68rem',
                                 fontWeight: 700,
@@ -354,10 +373,10 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                           </div>
                           <div style={{
                             fontSize: '0.72rem',
-                            color: record.isEarlyClockOut ? '#ef4444' : 'var(--text-subtle)',
-                            fontWeight: record.isEarlyClockOut ? 600 : 400
+                            color: effectiveIsEarlyClockOut ? '#ef4444' : 'var(--text-subtle)',
+                            fontWeight: effectiveIsEarlyClockOut ? 600 : 400
                           }}>
-                            {record.clockOutIso ? formatDateDDMMYYYY(record.clockOutIso) : formattedDate}
+                            {effectiveClockOutIso ? formatDateDDMMYYYY(effectiveClockOutIso) : formattedDate}
                           </div>
                         </div>
                       ) : (
@@ -389,8 +408,8 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '0.35rem',
-                          background: (isAdmin && record.isEarlyClockOut) ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                          color: (isAdmin && record.isEarlyClockOut) ? '#ef4444' : 'var(--primary)',
+                          background: (isAdmin && effectiveIsEarlyClockOut) ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                          color: (isAdmin && effectiveIsEarlyClockOut) ? '#ef4444' : 'var(--primary)',
                           padding: '0.3rem 0.6rem',
                           borderRadius: 'var(--radius-sm)',
                           fontFamily: 'var(--font-mono)',
@@ -400,7 +419,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                           <Clock size={14} />
                           <span>{workDurationStr}</span>
                         </div>
-                        {isAdmin && record.isEarlyClockOut && (
+                        {isAdmin && effectiveIsEarlyClockOut && (
                           <span style={{
                             color: '#ef4444',
                             fontWeight: 700,
