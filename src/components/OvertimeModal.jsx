@@ -164,7 +164,7 @@ export default function OvertimeModal({
           border: '1px solid rgba(245, 158, 11, 0.25)'
         }}>
           <h2 style={{
-            fontSize: '1.4rem',
+            fontSize: '1.35rem',
             fontWeight: 800,
             color: 'var(--text-main)',
             margin: 0,
@@ -173,8 +173,8 @@ export default function OvertimeModal({
             gap: '0.55rem',
             letterSpacing: '-0.01em'
           }}>
-            <Zap size={22} style={{ color: '#f59e0b' }} />
-            Do you want to work overtime?
+            <Zap size={22} style={{ color: '#f59e0b', flexShrink: 0 }} />
+            Do you want to work overtime today, after 6pm?
           </h2>
           <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', margin: '0.35rem 0 0 0' }}>
             Choose whether to extend your active session past 06:00 PM today.
