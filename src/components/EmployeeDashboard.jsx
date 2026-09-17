@@ -557,12 +557,12 @@ export default function EmployeeDashboard() {
                         </div>
                         <div>
                           <div style={{ fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.15rem' }}>
-                            {istState.isAtOrAfter530PM ? 'Shift Ending Soon — Plan to Work Overtime?' : 'Overtime Declaration'}
+                            {istState.isAtOrAfter530PM ? 'Shift Ending Soon — Plan to Work Overtime?' : 'Overtime Range'}
                           </div>
                           <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                             {istState.isAtOrAfter530PM
-                              ? 'Standard shift ends at 06:00 PM. Declare your overtime range to keep your session active.'
-                              : 'Overtime range declaration unlocks daily at 05:30 PM IST.'}
+                              ? 'Standard shift ends at 06:00 PM. Choose your overtime range to keep your session active.'
+                              : 'Overtime range selection unlocks daily at 05:30 PM IST.'}
                           </div>
                         </div>
                       </div>
@@ -596,10 +596,10 @@ export default function EmployeeDashboard() {
                             boxShadow: istState.isAtOrAfter530PM ? '0 6px 18px rgba(245, 158, 11, 0.4)' : 'none',
                             opacity: istState.isAtOrAfter530PM ? 1 : 0.65
                           }}
-                          title={!istState.isAtOrAfter530PM ? 'Overtime declaration unlocks at 05:30 PM IST' : 'Click to declare overtime range'}
+                          title={!istState.isAtOrAfter530PM ? 'Overtime range selection unlocks at 05:30 PM IST' : 'Click to choose overtime range'}
                         >
                           <Zap size={18} />
-                          <span>Declare Overtime Range</span>
+                          <span>Choose Overtime Range</span>
                         </button>
 
                         {!istState.isAtOrAfter530PM && (
