@@ -1,9 +1,8 @@
 import React from 'react';
 import { useAttendance } from '../context/AttendanceContext';
 import LiveClock from './LiveClock';
-import { LogOut, Sun, Moon } from 'lucide-react';
+import { Clock, LogOut, Sun, Moon } from 'lucide-react';
 import { getISTTime } from '../utils/geoUtils';
-import aventiqLogo from '../assets/aventiq-logo.png';
 
 export default function Header() {
   const { currentUser, currentUserTodayRecord, logout, theme, toggleTheme, setShowProfileModal } = useAttendance();
@@ -22,28 +21,9 @@ export default function Header() {
   return (
     <header className="app-header">
       {/* Brand & Logo */}
-      <div className="brand-container" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <div style={{
-          background: '#ffffff',
-          padding: '4px 8px',
-          borderRadius: '8px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
-          border: '1px solid rgba(0, 0, 0, 0.06)'
-        }}>
-          <img
-            src={aventiqLogo}
-            alt="Aventiq Logo"
-            style={{
-              height: '32px',
-              width: 'auto',
-              maxWidth: '130px',
-              objectFit: 'contain',
-              display: 'block'
-            }}
-          />
+      <div className="brand-container">
+        <div className="brand-logo">
+          <Clock size={22} strokeWidth={2.5} />
         </div>
         <div>
           <div className="brand-title">InTime</div>

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAttendance } from '../context/AttendanceContext';
-import { ShieldCheck, UserCheck, UserPlus, LogIn, Mail, Lock, Check, Camera, Upload, User, ArrowRight, ArrowLeft, FileCheck, Eye, EyeOff } from 'lucide-react';
-import aventiqLogo from '../assets/aventiq-logo.png';
+import { Clock, ShieldCheck, UserCheck, UserPlus, LogIn, Mail, Lock, Check, Camera, Upload, User, ArrowRight, ArrowLeft, FileCheck, Eye, EyeOff } from 'lucide-react';
 
 export default function AuthView() {
   const { login, registerEmployee } = useAttendance();
@@ -310,28 +309,8 @@ export default function AuthView() {
         
         {/* Brand Header */}
         <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: '#ffffff',
-            padding: '8px 18px',
-            borderRadius: '14px',
-            margin: '0 auto 0.9rem auto',
-            boxShadow: '0 4px 18px rgba(0, 0, 0, 0.06)',
-            border: '1px solid rgba(0, 0, 0, 0.06)'
-          }}>
-            <img
-              src={aventiqLogo}
-              alt="Aventiq Logo"
-              style={{
-                height: '56px',
-                width: 'auto',
-                maxWidth: '220px',
-                objectFit: 'contain',
-                display: 'block'
-              }}
-            />
+          <div className="brand-logo" style={{ width: '52px', height: '52px', margin: '0 auto 0.75rem auto', borderRadius: 'var(--radius-md)' }}>
+            <Clock size={28} strokeWidth={2.5} />
           </div>
           <h2 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)' }}>InTime Portal</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: '0.3rem' }}>
