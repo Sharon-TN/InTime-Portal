@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MapPin, Search, Calendar, User, ExternalLink, Camera, X, Clock, Trash2, Zap } from 'lucide-react';
-import { getGoogleMapsUrl, formatDateDDMMYYYY, formatWorkDurationHHMM, getISTDateString, toComparableDate, parseTimeToSeconds } from '../utils/geoUtils';
+import { getGoogleMapsUrl, formatDateDDMMYYYY, formatWorkDurationHHMM, getISTDateString, toComparableDate, parseTimeToSeconds, toIstIso } from '../utils/geoUtils';
 import { useAttendance } from '../context/AttendanceContext';
 
 export default function AttendanceLogTable({ records = [], employees = [], title = "Attendance Logs", isAdmin: propIsAdmin }) {
@@ -235,7 +235,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                   : record.clockOutTime;
 
                 const effectiveClockOutIso = (matchingDiary && matchingDiary.submittedAt && (record.autoClosed || !record.clockOutTime || (record.clockOutTime === '06:00 PM' && matchingDiary.submittedAt !== '06:00 PM')))
-                  ? (matchingDiary.createdAt || `${recDate}T${matchingDiary.submittedAt}`)
+                  ? (matchingDiary.createdAt || toIstIso(recDate, matchingDiary.submittedAt))
                   : record.clockOutIso;
 
                 const effectiveIsEarlyClockOut = (matchingDiary && matchingDiary.submittedAt && (record.autoClosed || record.clockOutTime === '06:00 PM'))

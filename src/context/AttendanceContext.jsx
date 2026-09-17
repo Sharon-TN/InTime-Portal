@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { INITIAL_EMPLOYEES, ADMIN_USER, DEFAULT_SHIFT_POLICY, generateInitialRecords } from '../mockData';
-import { getUserCoordinates, getAddressFromCoords, checkLateness, getISTTime, getISTDateString, sortDiariesDescending, toComparableDate, parseTimeToSeconds } from '../utils/geoUtils';
+import { getUserCoordinates, getAddressFromCoords, checkLateness, getISTTime, getISTDateString, sortDiariesDescending, toComparableDate, parseTimeToSeconds, toIstIso } from '../utils/geoUtils';
 import { supabase } from '../lib/supabase';
 import { uploadFileToStorage, deleteFileFromStorage } from '../utils/storageUtils';
 
@@ -104,7 +104,7 @@ export const AttendanceProvider = ({ children }) => {
                 ...item,
                 status: 'CLOCK_OUT',
                 clockOutTime: submittedTime,
-                clockOutIso: matchingDiary.createdAt || `${item.date}T${submittedTime}`,
+                clockOutIso: matchingDiary.createdAt || toIstIso(item.date, submittedTime),
                 workDiarySubmitted: true,
                 isEarlyClockOut: isEarly,
                 autoClosed: false
@@ -353,7 +353,7 @@ export const AttendanceProvider = ({ children }) => {
                 ...item,
                 status: 'CLOCK_OUT',
                 clockOutTime: submittedTime,
-                clockOutIso: matchingDiary.createdAt || `${item.date}T${submittedTime}`,
+                clockOutIso: matchingDiary.createdAt || toIstIso(item.date, submittedTime),
                 workDiarySubmitted: true,
                 isEarlyClockOut: isEarly,
                 autoClosed: false

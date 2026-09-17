@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAttendance } from '../context/AttendanceContext';
-import { formatDateDDMMYYYY, formatWorkDurationHHMM } from '../utils/geoUtils';
+import { formatDateDDMMYYYY, formatWorkDurationHHMM, parseTimeToSeconds } from '../utils/geoUtils';
 import {
   BarChart3, Clock, Calendar, CheckCircle, AlertCircle, Laptop, Building2,
   BookOpen, ShieldCheck, User, Search, Award, TrendingUp, Filter, PieChart as PieChartIcon, LayoutGrid
@@ -117,10 +117,12 @@ export default function EmployeeAnalyticsModule() {
 
   // Helper to format milliseconds into HH:MM (Hours:Minutes)
   const formatMsToHHMM = (totalMs) => {
-    if (!totalMs || totalMs <= 0) return '00:00';
+    if (!totalMs || isNaN(totalMs) || totalMs <= 0) return '00:00';
     const totalMins = Math.floor(totalMs / (1000 * 60));
+    if (isNaN(totalMins) || totalMins <= 0) return '00:00';
     const hours = Math.floor(totalMins / 60);
     const mins = totalMins % 60;
+    if (isNaN(hours) || isNaN(mins)) return '00:00';
     return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
   };
 
@@ -156,12 +158,26 @@ export default function EmployeeAnalyticsModule() {
       else onTimeCount++;
 
       // Calculate working hours (Excluding Sat & Sun)
-      if (!isWeekend && r.clockInIso) {
+      if (!isWeekend) {
         weekdayShiftCount++;
-        const startTime = new Date(r.clockInIso);
-        const endTime = r.clockOutIso ? new Date(r.clockOutIso) : new Date();
-        let durationMs = Math.max(0, endTime - startTime);
-        if (!r.clockOutIso && durationMs > 9 * 60 * 60 * 1000) {
+        let durationMs = 0;
+
+        if (r.clockInTime && r.clockOutTime) {
+          const sSec = parseTimeToSeconds(r.clockInTime);
+          const eSec = parseTimeToSeconds(r.clockOutTime);
+          if (sSec >= 0 && eSec >= 0 && eSec >= sSec) {
+            durationMs = (eSec - sSec) * 1000;
+          }
+        } else if (r.clockInIso) {
+          const startTime = new Date(r.clockInIso).getTime();
+          const endTime = r.clockOutIso ? new Date(r.clockOutIso).getTime() : Date.now();
+          if (!isNaN(startTime) && !isNaN(endTime) && endTime >= startTime) {
+            durationMs = endTime - startTime;
+          }
+        }
+
+        if (isNaN(durationMs) || durationMs < 0) durationMs = 0;
+        if (!r.clockOutIso && !r.clockOutTime && durationMs > 9 * 60 * 60 * 1000) {
           durationMs = 9 * 60 * 60 * 1000;
         }
         totalWeekdayMs += durationMs;

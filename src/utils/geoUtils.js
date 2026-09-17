@@ -169,45 +169,128 @@ export const getISTDateString = () => {
   return formatter.format(new Date());
 };
 
+// Convert time and date to proper ISO string with IST timezone offset (+05:30)
+export const toIstIso = (dateStr, timeStr) => {
+  if (!dateStr) return null;
+  const cleanDate = toComparableDate(dateStr);
+  if (!cleanDate) return null;
+  const sec = parseTimeToSeconds(timeStr);
+  if (sec < 0) return `${cleanDate}T18:00:00+05:30`;
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  const h24 = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${cleanDate}T${h24}+05:30`;
+};
+
 // Calculate and format shift work duration into HH:MM (Hours:Minutes) format
 export const formatWorkDurationHHMM = (clockInIso, clockOutIso, date = null, clockInTime = null, clockOutTime = null) => {
-  let startMs = clockInIso ? new Date(clockInIso).getTime() : 0;
-  let endMs = clockOutIso ? new Date(clockOutIso).getTime() : 0;
+  try {
+    // 1. If both human-readable clockInTime and clockOutTime are present (e.g. "09:24 AM" and "04:54 PM")
+    // This is the cleanest, timezone-independent ground truth for duration within a day
+    if (clockInTime && clockOutTime) {
+      const startSec = parseTimeToSeconds(clockInTime);
+      const endSec = parseTimeToSeconds(clockOutTime);
+      if (startSec >= 0 && endSec >= 0) {
+        let diffSec = endSec - startSec;
+        if (diffSec <= 0) return '00:00 hrs';
+        const totalMinutes = Math.floor(diffSec / 60);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        if (isNaN(hours) || isNaN(minutes) || !isFinite(hours) || !isFinite(minutes)) {
+          return '00:00 hrs';
+        }
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} hrs`;
+      }
+    }
 
-  // Robust fallback: if ISO is missing/invalid, parse from 12-hour/24-hour time strings
-  if ((!startMs || isNaN(startMs)) && clockInTime) {
-    const startSec = parseTimeToSeconds(clockInTime);
-    if (startSec >= 0) {
-      startMs = startSec * 1000;
-      if ((!endMs || isNaN(endMs)) && clockOutTime) {
-        const endSec = parseTimeToSeconds(clockOutTime);
-        if (endSec >= 0) {
-          endMs = endSec * 1000;
+    // 2. Parse timestamps from ISO strings or fallback to time strings
+    let startMs = NaN;
+    if (clockInIso) {
+      const d = new Date(clockInIso);
+      if (!isNaN(d.getTime())) {
+        startMs = d.getTime();
+      } else if (typeof clockInIso === 'string' && clockInIso.includes('T')) {
+        const [dPart, tPart] = clockInIso.split('T');
+        const s = parseTimeToSeconds(tPart);
+        if (s >= 0) {
+          const iso = toIstIso(dPart, tPart);
+          const dt = new Date(iso);
+          if (!isNaN(dt.getTime())) startMs = dt.getTime();
         }
       }
     }
+    if (isNaN(startMs) && clockInTime) {
+      const s = parseTimeToSeconds(clockInTime);
+      if (s >= 0) {
+        const recDate = date || getISTDateString();
+        const iso = toIstIso(recDate, clockInTime);
+        const dt = new Date(iso);
+        if (!isNaN(dt.getTime())) startMs = dt.getTime();
+      }
+    }
+
+    if (isNaN(startMs)) return '00:00 hrs';
+
+    let endMs = NaN;
+    if (clockOutIso) {
+      const d = new Date(clockOutIso);
+      if (!isNaN(d.getTime())) {
+        endMs = d.getTime();
+      } else if (typeof clockOutIso === 'string' && clockOutIso.includes('T')) {
+        const [dPart, tPart] = clockOutIso.split('T');
+        const s = parseTimeToSeconds(tPart);
+        if (s >= 0) {
+          const iso = toIstIso(dPart, tPart);
+          const dt = new Date(iso);
+          if (!isNaN(dt.getTime())) endMs = dt.getTime();
+        }
+      }
+    }
+    if (isNaN(endMs) && clockOutTime) {
+      const s = parseTimeToSeconds(clockOutTime);
+      if (s >= 0) {
+        const recDate = date || getISTDateString();
+        const iso = toIstIso(recDate, clockOutTime);
+        const dt = new Date(iso);
+        if (!isNaN(dt.getTime())) endMs = dt.getTime();
+      }
+    }
+
+    // If shift is currently active (no clock-out registered), measure against now
+    if (isNaN(endMs)) {
+      if (!clockOutIso && !clockOutTime) {
+        endMs = Date.now();
+      } else {
+        return '00:00 hrs';
+      }
+    }
+
+    const diffMs = endMs - startMs;
+    if (isNaN(diffMs) || diffMs <= 0) return '00:00 hrs';
+
+    let totalMinutes = Math.floor(diffMs / (1000 * 60));
+
+    // Cap unclosed / stale active shifts at 9 hours max
+    if (!clockOutIso && !clockOutTime && totalMinutes > 9 * 60) {
+      totalMinutes = 9 * 60;
+    }
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    if (isNaN(hours) || isNaN(minutes) || !isFinite(hours) || !isFinite(minutes)) {
+      return '00:00 hrs';
+    }
+
+    const strHours = String(hours).padStart(2, '0');
+    const strMins = String(minutes).padStart(2, '0');
+
+    return `${strHours}:${strMins} hrs`;
+  } catch (err) {
+    console.warn("Work duration calculation error:", err);
+    return '00:00 hrs';
   }
-
-  if (!startMs || isNaN(startMs)) return '00:00 hrs';
-
-  const end = (endMs && !isNaN(endMs)) ? endMs : (clockOutIso ? new Date(clockOutIso).getTime() : Date.now());
-  const diffMs = end - startMs;
-  if (diffMs <= 0) return '00:00 hrs';
-
-  let totalMinutes = Math.floor(diffMs / (1000 * 60));
-
-  // Cap unclosed / stale active shifts at 9 hours max to prevent runaway 43+ hr counters
-  if (!clockOutIso && !clockOutTime && totalMinutes > 9 * 60) {
-    totalMinutes = 9 * 60; // 09:00 hrs cap
-  }
-
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  const strHours = String(hours).padStart(2, '0');
-  const strMins = String(minutes).padStart(2, '0');
-
-  return `${strHours}:${strMins} hrs`;
 };
 
 // Evaluate whether clock-in time is ON_TIME or LATE
