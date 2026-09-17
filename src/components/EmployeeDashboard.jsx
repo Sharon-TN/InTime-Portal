@@ -24,6 +24,8 @@ export default function EmployeeDashboard() {
     shiftPolicy,
     clockIn,
     clockOut,
+    submitDailyWorkDiary,
+    workDiaries,
     declareOvertime,
     deleteEmployeeAccount,
     showProfileModal,
@@ -40,17 +42,77 @@ export default function EmployeeDashboard() {
   // Modals state
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [showDiaryModal, setShowDiaryModal] = useState(false);
+  const [isDiaryStandalone, setIsDiaryStandalone] = useState(false);
+  const [diaryTargetDate, setDiaryTargetDate] = useState(null);
+  const [diarySuccessNotice, setDiarySuccessNotice] = useState('');
+  const [showDiaryRequiredModal, setShowDiaryRequiredModal] = useState(false);
+  const [showClockOutConfirmModal, setShowClockOutConfirmModal] = useState(false);
   const [showOvertimeModal, setShowOvertimeModal] = useState(false);
   const [otPromptSlot, setOtPromptSlot] = useState('MANUAL'); // '530' | '545' | 'MANUAL'
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [showEarlyConfirmModal, setShowEarlyConfirmModal] = useState(false);
   const [isEarlyExitFlow, setIsEarlyExitFlow] = useState(false);
 
+  // Protection C: Past unclosed shift resolution state
+  const [acknowledgedIncompleteShifts, setAcknowledgedIncompleteShifts] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('intime_ack_incomplete') || '[]');
+    } catch (e) {
+      return [];
+    }
+  });
+  const [showPastIncompleteModal, setShowPastIncompleteModal] = useState(false);
+  const [pastShiftToResolve, setPastShiftToResolve] = useState(null);
+
   // Live IST Shift Guardrails
   const [istState, setIstState] = useState(() => getISTTime());
 
   const isClockedIn = !!currentUserTodayRecord;
   const userRecords = records.filter(r => r.employeeId === currentUser?.id);
+
+  // Today's Work Diary Status
+  const todayIstDate = getISTDateString();
+  const todayDiary = (workDiaries || []).find(d =>
+    d.employeeId === currentUser?.id &&
+    (d.date === todayIstDate || d.date === currentUserTodayRecord?.date)
+  );
+  const hasSubmittedTodayDiary = !!todayDiary || !!currentUserTodayRecord?.workDiarySubmitted;
+
+  // PROTECTION A: Prevent accidental tab closing while clocked in
+  useEffect(() => {
+    if (!currentUserTodayRecord) return;
+
+    const handleBeforeUnload = (e) => {
+      const message = "You have an active InTime shift in progress. Please submit your Work Diary and Clock Out before leaving.";
+      e.preventDefault();
+      e.returnValue = message;
+      return message;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [currentUserTodayRecord]);
+
+  // PROTECTION C: Prompt employee on next morning if past shift was closed without a Work Diary
+  useEffect(() => {
+    if (!currentUser || !records || records.length === 0) return;
+    const todayStr = getISTDateString();
+
+    const unclosedPast = records.find(r =>
+      r.employeeId === currentUser.id &&
+      r.date && r.date < todayStr &&
+      (r.autoClosed || !r.workDiarySubmitted) &&
+      !acknowledgedIncompleteShifts.includes(r.id) &&
+      !acknowledgedIncompleteShifts.includes(r.date)
+    );
+
+    if (unclosedPast) {
+      setPastShiftToResolve(unclosedPast);
+      setShowPastIncompleteModal(true);
+    }
+  }, [currentUser, records, acknowledgedIncompleteShifts]);
 
   // Shift Schedule Monitor: Prompts for Overtime at 5:30 PM and 5:45 PM (NO forced 6:05 PM auto-logout)
   useEffect(() => {
@@ -138,15 +200,97 @@ export default function EmployeeDashboard() {
     }
   };
 
-  // Trigger standard Clock Out Work Diary modal (unlocks at 6:00 PM IST or during active Overtime)
+  // Open Standalone Work Diary (Always enabled at all times during active shift)
+  const handleOpenDiaryStandalone = () => {
+    setError('');
+    setIsDiaryStandalone(true);
+    setIsEarlyExitFlow(false);
+    setDiaryTargetDate(null);
+    setShowDiaryModal(true);
+  };
+
+  // Submit Work Diary (Handles standalone daily submission, past shift diary, or early exit)
+  const handleConfirmDiarySubmission = async (workDiaryData) => {
+    if (isDiaryStandalone) {
+      setShowDiaryModal(false);
+      setLoading(true);
+      try {
+        const res = await submitDailyWorkDiary(workDiaryData, diaryTargetDate);
+        if (!res.success) {
+          setError(res.error || 'Failed to submit work diary');
+        } else {
+          setDiarySuccessNotice('Daily Work Diary submitted successfully! Your shift is still active.');
+          setTimeout(() => setDiarySuccessNotice(''), 6000);
+          if (diaryTargetDate) {
+            setAcknowledgedIncompleteShifts(prev => {
+              const updated = [...prev, diaryTargetDate];
+              try { localStorage.setItem('intime_ack_incomplete', JSON.stringify(updated)); } catch(e){}
+              return updated;
+            });
+            setShowPastIncompleteModal(false);
+          }
+        }
+      } catch (err) {
+        setError('An unexpected error occurred while saving work diary.');
+      } finally {
+        setLoading(false);
+        setIsDiaryStandalone(false);
+        setDiaryTargetDate(null);
+      }
+    } else {
+      // Early exit flow with diary submission
+      setShowDiaryModal(false);
+      setLoading(true);
+      try {
+        const res = await clockOut(workDiaryData, { isEarlyClockOut: isEarlyExitFlow });
+        if (!res.success) {
+          setError(res.error || 'Failed to clock out');
+        } else {
+          logout();
+        }
+      } catch (err) {
+        setError('An unexpected error occurred during clock out.');
+      } finally {
+        setLoading(false);
+        setIsEarlyExitFlow(false);
+      }
+    }
+  };
+
+  // Trigger standard Clock Out flow (Strict Way 1 Guardrail check)
   const handleStartClockOutFlow = () => {
     if (!istState.isAfter6PM && !currentUserTodayRecord?.isOvertime) {
-      setError('Standard clock-out unlocks at 06:00 PM IST. If leaving early, please use "Early Clockout".');
+      setError('Standard clock-out unlocks at 06:00 PM IST (or during active Overtime). If leaving early, please use "Early Clockout".');
       return;
     }
     setError('');
-    setIsEarlyExitFlow(false);
-    setShowDiaryModal(true);
+
+    // Strict Way 1 Guardrail: Block clock-out if Work Diary has not been submitted
+    if (!hasSubmittedTodayDiary) {
+      setShowDiaryRequiredModal(true);
+      return;
+    }
+
+    // Work Diary is submitted -> Show final clock out confirmation dialog
+    setShowClockOutConfirmModal(true);
+  };
+
+  // User confirms final clock out
+  const handleConfirmFinalClockOut = async () => {
+    setShowClockOutConfirmModal(false);
+    setLoading(true);
+    try {
+      const res = await clockOut(null, { isEarlyClockOut: false });
+      if (!res.success) {
+        setError(res.error || 'Failed to clock out');
+      } else {
+        logout();
+      }
+    } catch (err) {
+      setError('An unexpected error occurred during clock out.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Trigger Early Clockout confirmation dialog ("Do you want to log out early today?")
@@ -159,27 +303,8 @@ export default function EmployeeDashboard() {
   const handleConfirmEarlyExit = () => {
     setShowEarlyConfirmModal(false);
     setIsEarlyExitFlow(true);
+    setIsDiaryStandalone(false);
     setShowDiaryModal(true);
-  };
-
-  // Confirm Clock Out from Work Diary modal (handles both standard & early checkout)
-  const handleConfirmClockOut = async (workDiaryData) => {
-    setShowDiaryModal(false);
-    setLoading(true);
-    try {
-      const res = await clockOut(workDiaryData, { isEarlyClockOut: isEarlyExitFlow });
-      if (!res.success) {
-        setError(res.error || 'Failed to clock out');
-      } else {
-        // Automatically clock out from session & sign out from account for that day
-        logout();
-      }
-    } catch (err) {
-      setError('An unexpected error occurred during clock out.');
-    } finally {
-      setLoading(false);
-      setIsEarlyExitFlow(false);
-    }
   };
 
   // Handle Employee Self-Account Deletion
@@ -611,21 +736,128 @@ export default function EmployeeDashboard() {
                     </div>
                   )}
 
+                  {/* WORK DIARY SUBMISSION SECTION (Always Enabled at all times during active shift) */}
+                  <div style={{
+                    background: hasSubmittedTodayDiary ? 'rgba(16, 185, 129, 0.05)' : 'var(--bg-input)',
+                    border: hasSubmittedTodayDiary ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border-color)',
+                    padding: '1rem',
+                    borderRadius: 'var(--radius-md)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.65rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                        <BookOpen size={16} style={{ color: hasSubmittedTodayDiary ? 'var(--accent-emerald)' : 'var(--accent-amber)' }} />
+                        <span>Daily Work Diary:</span>
+                      </div>
+                      {hasSubmittedTodayDiary ? (
+                        <span style={{
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          color: 'var(--accent-emerald)',
+                          border: '1px solid var(--accent-emerald)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          padding: '0.25rem 0.65rem',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700
+                        }}>
+                          <CheckCircle size={12} />
+                          <span>Submitted{todayDiary?.submittedAt ? ` at ${todayDiary.submittedAt}` : ''}</span>
+                        </span>
+                      ) : (
+                        <span style={{
+                          background: 'rgba(245, 158, 11, 0.15)',
+                          color: 'var(--accent-amber)',
+                          border: '1px solid var(--accent-amber)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          padding: '0.25rem 0.65rem',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700
+                        }}>
+                          <Clock size={12} />
+                          <span>Pending Submission</span>
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleOpenDiaryStandalone}
+                      disabled={loading}
+                      style={{
+                        padding: '0.85rem',
+                        fontSize: '0.9rem',
+                        fontWeight: 700,
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        borderRadius: 'var(--radius-sm)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        background: hasSubmittedTodayDiary
+                          ? 'rgba(16, 185, 129, 0.12)'
+                          : 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                        color: hasSubmittedTodayDiary ? 'var(--accent-emerald)' : '#ffffff',
+                        border: hasSubmittedTodayDiary ? '1.5px solid var(--accent-emerald)' : '1px solid #2563eb',
+                        boxShadow: hasSubmittedTodayDiary ? 'none' : '0 4px 14px rgba(37, 99, 235, 0.3)'
+                      }}
+                      title="Submit or update your Daily Work Diary at any time during your shift"
+                    >
+                      {hasSubmittedTodayDiary ? <CheckCircle size={18} /> : <BookOpen size={18} />}
+                      <span>
+                        {hasSubmittedTodayDiary
+                          ? '✓ View / Update Work Diary'
+                          : 'Submit Daily Work Diary'}
+                      </span>
+                    </button>
+
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                      💡 Available anytime during your shift. Submitting saves your deliverables while your shift remains active.
+                    </div>
+                  </div>
+
+                  {diarySuccessNotice && (
+                    <div style={{
+                      background: 'rgba(16, 185, 129, 0.12)',
+                      border: '1px solid var(--accent-emerald)',
+                      color: 'var(--accent-emerald)',
+                      padding: '0.65rem 0.85rem',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.45rem'
+                    }}>
+                      <CheckCircle size={15} />
+                      <span>{diarySuccessNotice}</span>
+                    </div>
+                  )}
+
                   {/* Shift Policy Information */}
                   <div style={{ background: 'var(--bg-input)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                     <div style={{ fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem' }}>
                       <Clock size={15} style={{ color: 'var(--accent-amber)' }} />
                       <span>Shift & Checkout Policy (IST):</span>
                     </div>
-                    Standard shift concludes at <strong>06:00 PM IST</strong>. To complete checkout and sign out, submit your <strong>Daily Work Diary</strong>. If working overtime, your session stays active until you manually clock out.
+                    Standard shift concludes at <strong>06:00 PM IST</strong>. To complete checkout and clock out, your <strong>Daily Work Diary</strong> must be submitted. If working overtime, your session stays active until you manually clock out.
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.75rem' }}>
-                    {/* Standard / Overtime Clock Out Button */}
+                    {/* Standard / Overtime Clock Out Button (Strictly requires Work Diary) */}
                     {(() => {
                       const canStandardClockOut = istState.isAfter6PM || currentUserTodayRecord?.isOvertime;
                       return (
                         <button
+                          type="button"
                           onClick={handleStartClockOutFlow}
                           className="btn-danger"
                           disabled={loading || !canStandardClockOut}
@@ -639,17 +871,17 @@ export default function EmployeeDashboard() {
                             background: currentUserTodayRecord?.isOvertime ? 'linear-gradient(135deg, #f59e0b, #ea580c)' : undefined,
                             borderColor: currentUserTodayRecord?.isOvertime ? '#f59e0b' : undefined
                           }}
-                          title={!canStandardClockOut ? "Clock-Out unlocks at 06:00 PM IST" : "Submit Work Diary & Clock Out"}
+                          title={!canStandardClockOut ? "Clock-Out unlocks at 06:00 PM IST" : (!hasSubmittedTodayDiary ? "Daily Work Diary required before clock out" : "Clock Out")}
                         >
                           {!canStandardClockOut ? <Clock size={18} /> : (currentUserTodayRecord?.isOvertime ? <Zap size={18} /> : <LogOut size={18} />)}
                           <span>
                             {loading
                               ? 'Processing...'
                               : currentUserTodayRecord?.isOvertime
-                              ? 'Submit Work Diary & Clock Out (OT)'
+                              ? 'Clock Out (OT)'
                               : !istState.isAfter6PM
                               ? 'Clock-Out Unlocks at 06:00 PM IST'
-                              : 'Submit Work Diary & Clock Out'}
+                              : 'Clock Out'}
                           </span>
                         </button>
                       );
@@ -799,12 +1031,242 @@ export default function EmployeeDashboard() {
       {showDiaryModal && (
         <WorkDiaryModal
           isEarly={isEarlyExitFlow}
-          onConfirm={handleConfirmClockOut}
+          isStandalone={isDiaryStandalone}
+          initialData={diaryTargetDate ? (workDiaries || []).find(d => d.employeeId === currentUser?.id && d.date === diaryTargetDate) : todayDiary}
+          titleOverride={diaryTargetDate ? `Submit Work Diary for ${diaryTargetDate}` : null}
+          subtitleOverride={diaryTargetDate ? `Completing compliance record for past unclosed shift on ${diaryTargetDate}.` : null}
+          onConfirm={handleConfirmDiarySubmission}
           onClose={() => {
             setShowDiaryModal(false);
             setIsEarlyExitFlow(false);
+            setIsDiaryStandalone(false);
+            setDiaryTargetDate(null);
           }}
         />
+      )}
+
+      {/* MODAL: STRICT WAY 1 GUARDRAIL - WORK DIARY REQUIRED */}
+      {showDiaryRequiredModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '1rem'
+        }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '440px', padding: '2rem', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: 'rgba(245, 158, 11, 0.15)',
+              color: 'var(--accent-amber)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1.25rem'
+            }}>
+              <BookOpen size={28} />
+            </div>
+
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+              Daily Work Diary Required
+            </h3>
+            
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+              Company policy requires your <strong>Daily Work Diary</strong> to be submitted before you can clock out for the day. Please record your completed tasks and action items to proceed.
+            </p>
+
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setShowDiaryRequiredModal(false)}
+                className="btn-secondary"
+                style={{ flex: 1, padding: '0.75rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDiaryRequiredModal(false);
+                  setIsDiaryStandalone(true);
+                  setIsEarlyExitFlow(false);
+                  setDiaryTargetDate(null);
+                  setShowDiaryModal(true);
+                }}
+                className="btn-primary"
+                style={{
+                  flex: 1.5,
+                  padding: '0.75rem',
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  borderColor: '#10b981',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem'
+                }}
+              >
+                <BookOpen size={16} />
+                <span>Fill Work Diary Now</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: FINAL CLOCK OUT CONFIRMATION DIALOG */}
+      {showClockOutConfirmModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '1rem'
+        }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '440px', padding: '2rem', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: 'rgba(239, 68, 68, 0.12)',
+              color: 'var(--accent-rose)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1.25rem'
+            }}>
+              <LogOut size={28} />
+            </div>
+
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+              Confirm Clock Out
+            </h3>
+            
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+              Are you ready to clock out at <strong style={{ color: 'var(--text-main)' }}>{istState.timeString}</strong> and conclude your shift for today? Your attendance timer will stop and you will be signed out.
+            </p>
+
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setShowClockOutConfirmModal(false)}
+                className="btn-secondary"
+                style={{ flex: 1, padding: '0.75rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmFinalClockOut}
+                className="btn-danger"
+                style={{
+                  flex: 1.4,
+                  padding: '0.75rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem'
+                }}
+              >
+                <LogOut size={16} />
+                <span>Confirm Clock Out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: PROTECTION C - INCOMPLETE PAST SHIFT RESOLUTION */}
+      {showPastIncompleteModal && pastShiftToResolve && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99998,
+          padding: '1rem'
+        }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '460px', padding: '2rem', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: 'rgba(245, 158, 11, 0.15)',
+              color: 'var(--accent-amber)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1.25rem'
+            }}>
+              <AlertTriangle size={28} />
+            </div>
+
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+              Incomplete Shift from {pastShiftToResolve.date}
+            </h3>
+            
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+              You closed your session on <strong>{pastShiftToResolve.date}</strong> without submitting your Daily Work Diary. Please submit your work summary for that day to complete your compliance record.
+            </p>
+
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setAcknowledgedIncompleteShifts(prev => {
+                    const updated = [...prev, pastShiftToResolve.id, pastShiftToResolve.date];
+                    try { localStorage.setItem('intime_ack_incomplete', JSON.stringify(updated)); } catch(e){}
+                    return updated;
+                  });
+                  setShowPastIncompleteModal(false);
+                }}
+                className="btn-secondary"
+                style={{ flex: 1, padding: '0.75rem' }}
+              >
+                Dismiss
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPastIncompleteModal(false);
+                  setIsDiaryStandalone(true);
+                  setIsEarlyExitFlow(false);
+                  setDiaryTargetDate(pastShiftToResolve.date);
+                  setShowDiaryModal(true);
+                }}
+                className="btn-primary"
+                style={{
+                  flex: 1.5,
+                  padding: '0.75rem',
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  borderColor: '#f59e0b',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem'
+                }}
+              >
+                <BookOpen size={16} />
+                <span>Submit Diary for {pastShiftToResolve.date}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* OVERTIME DECLARATION MODAL (5:30 PM & 5:45 PM Prompts or Manual Trigger) */}

@@ -829,6 +829,78 @@ export const AttendanceProvider = ({ children }) => {
     }
   };
 
+  // Standalone Submit / Update Daily Work Diary (does NOT clock out or log out)
+  const submitDailyWorkDiary = async (workDiaryData, targetDate = null) => {
+    if (!currentUser) return { success: false, error: "Must be logged in to submit work diary." };
+    if (!workDiaryData || !workDiaryData.completedTasks?.trim()) {
+      return { success: false, error: "Please enter your completed action items or tasks." };
+    }
+
+    const todayIst = getISTDateString();
+    const todayStr = targetDate || todayIst;
+
+    const activeRec = records.find(r => r.employeeId === currentUser.id && (r.date === todayStr || (r.status === 'CLOCK_IN' && !targetDate)));
+
+    const now = new Date();
+    const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    const isoString = now.toISOString();
+
+    const existingDiary = workDiaries.find(d => d.employeeId === currentUser.id && d.date === todayStr);
+
+    const diaryRecord = {
+      id: existingDiary ? existingDiary.id : `WDIARY-${Date.now()}`,
+      employeeId: currentUser.id,
+      employeeName: currentUser.name,
+      date: todayStr,
+      completedTasks: workDiaryData.completedTasks || '',
+      keyAccomplishments: workDiaryData.keyAccomplishments || '',
+      tomorrowObjectives: workDiaryData.tomorrowObjectives || '',
+      shiftNotes: workDiaryData.shiftNotes || '',
+      submittedAt: existingDiary?.submittedAt || timeString,
+      updatedAt: timeString,
+      createdAt: existingDiary?.createdAt || isoString
+    };
+
+    // Update state & local storage
+    const updatedDiaries = existingDiary
+      ? workDiaries.map(d => d.id === existingDiary.id ? diaryRecord : d)
+      : [diaryRecord, ...workDiaries];
+
+    setWorkDiaries(sortDiariesDescending(updatedDiaries));
+    safeSetLocalStorage('intime_work_diaries', updatedDiaries);
+
+    // Update attendance record for today (or targetDate) to reflect workDiarySubmitted: true
+    let updatedTargetRecord = null;
+    if (activeRec) {
+      const newRecords = records.map(r => {
+        if (r.id === activeRec.id) {
+          const updated = {
+            ...r,
+            workDiarySubmitted: true,
+            diarySubmittedAt: timeString,
+            autoClosed: false
+          };
+          updatedTargetRecord = updated;
+          return updated;
+        }
+        return r;
+      });
+      setRecords(newRecords);
+      safeSetLocalStorage('intime_records', newRecords);
+    }
+
+    try {
+      await Promise.allSettled([
+        saveWorkDiaryToSupabase(diaryRecord),
+        updatedTargetRecord ? saveRecordToSupabase(updatedTargetRecord) : Promise.resolve()
+      ]);
+    } catch (err) {
+      console.warn("Supabase persistence warning during submitDailyWorkDiary:", err);
+    }
+
+    return { success: true, diary: diaryRecord };
+  };
+
   // Clock Out Action
   const clockOut = async (workDiaryData = null, options = {}) => {
     if (!currentUser) return { success: false, error: "Must be logged in to clock out." };
@@ -848,8 +920,9 @@ export const AttendanceProvider = ({ children }) => {
 
     let diarySavePromise = Promise.resolve();
     if (workDiaryData) {
+      const existingDiary = workDiaries.find(d => d.employeeId === currentUser.id && d.date === todayStr);
       const diaryRecord = {
-        id: `WDIARY-${Date.now()}`,
+        id: existingDiary ? existingDiary.id : `WDIARY-${Date.now()}`,
         employeeId: currentUser.id,
         employeeName: currentUser.name,
         date: todayStr,
@@ -857,12 +930,19 @@ export const AttendanceProvider = ({ children }) => {
         keyAccomplishments: workDiaryData.keyAccomplishments || '',
         tomorrowObjectives: workDiaryData.tomorrowObjectives || '',
         shiftNotes: workDiaryData.shiftNotes || '',
-        submittedAt: timeString,
-        createdAt: isoString
+        submittedAt: existingDiary?.submittedAt || timeString,
+        updatedAt: timeString,
+        createdAt: existingDiary?.createdAt || isoString
       };
-      setWorkDiaries(prev => sortDiariesDescending([diaryRecord, ...prev]));
+      const updatedDiaries = existingDiary
+        ? workDiaries.map(d => d.id === existingDiary.id ? diaryRecord : d)
+        : [diaryRecord, ...workDiaries];
+      setWorkDiaries(sortDiariesDescending(updatedDiaries));
+      safeSetLocalStorage('intime_work_diaries', updatedDiaries);
       diarySavePromise = saveWorkDiaryToSupabase(diaryRecord);
     }
+
+    const hasDiary = !!workDiaryData || !!activeRec.workDiarySubmitted || workDiaries.some(d => d.employeeId === currentUser.id && d.date === todayStr);
 
     let updatedTargetRecord = null;
     const newRecords = records.map(r => {
@@ -872,7 +952,7 @@ export const AttendanceProvider = ({ children }) => {
           clockOutTime: timeString,
           clockOutIso: isoString,
           status: 'CLOCK_OUT',
-          workDiarySubmitted: !!workDiaryData,
+          workDiarySubmitted: hasDiary,
           autoClosed: !!options.autoClosed,
           isEarlyClockOut: !!options.isEarlyClockOut
         };
@@ -1157,6 +1237,7 @@ export const AttendanceProvider = ({ children }) => {
         deleteAttendanceRecord,
         clockIn,
         clockOut,
+        submitDailyWorkDiary,
         uploadPayslip,
         deletePayslip,
         uploadDocument,

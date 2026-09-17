@@ -1,12 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BookOpen, CheckCircle, Target, FileText, LogOut, X } from 'lucide-react';
 
-export default function WorkDiaryModal({ onConfirm, onClose, isEarly = false }) {
-  const [completedTasks, setCompletedTasks] = useState('');
-  const [keyAccomplishments, setKeyAccomplishments] = useState('');
-  const [tomorrowObjectives, setTomorrowObjectives] = useState('');
-  const [shiftNotes, setShiftNotes] = useState('');
+export default function WorkDiaryModal({
+  onConfirm,
+  onClose,
+  isEarly = false,
+  isStandalone = false,
+  initialData = null,
+  titleOverride = null,
+  subtitleOverride = null
+}) {
+  const [completedTasks, setCompletedTasks] = useState(initialData?.completedTasks || '');
+  const [keyAccomplishments, setKeyAccomplishments] = useState(initialData?.keyAccomplishments || '');
+  const [tomorrowObjectives, setTomorrowObjectives] = useState(initialData?.tomorrowObjectives || '');
+  const [shiftNotes, setShiftNotes] = useState(initialData?.shiftNotes || '');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Update fields if initialData changes
+  useEffect(() => {
+    if (initialData) {
+      if (initialData.completedTasks) setCompletedTasks(initialData.completedTasks);
+      if (initialData.keyAccomplishments) setKeyAccomplishments(initialData.keyAccomplishments);
+      if (initialData.tomorrowObjectives) setTomorrowObjectives(initialData.tomorrowObjectives);
+      if (initialData.shiftNotes) setShiftNotes(initialData.shiftNotes);
+    }
+  }, [initialData]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -41,13 +59,17 @@ export default function WorkDiaryModal({ onConfirm, onClose, isEarly = false }) 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
           <div>
             <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <BookOpen size={22} style={{ color: isEarly ? 'var(--accent-rose)' : 'var(--accent-cyan)' }} />
-              <span>{isEarly ? 'Early Clock-Out & Daily Work Diary' : 'Daily Work Diary & Shift Summary'}</span>
+              <BookOpen size={22} style={{ color: isEarly ? 'var(--accent-rose)' : isStandalone ? 'var(--accent-emerald)' : 'var(--accent-cyan)' }} />
+              <span>
+                {titleOverride || (isEarly ? 'Early Clock-Out & Daily Work Diary' : isStandalone ? 'Daily Work Diary & Shift Summary' : 'Daily Work Diary & Shift Summary')}
+              </span>
             </h3>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-              {isEarly
+              {subtitleOverride || (isEarly
                 ? 'Recording early departure. Please update your action items and accomplishments before logging out.'
-                : 'Please update your action items and accomplishments before clocking out.'}
+                : isStandalone
+                ? 'Record your daily completed tasks, accomplishments, and plans. Your shift session remains active.'
+                : 'Please update your action items and accomplishments before clocking out.')}
             </p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
@@ -116,11 +138,44 @@ export default function WorkDiaryModal({ onConfirm, onClose, isEarly = false }) 
             </button>
             <button
               type="submit"
-              className="btn-danger"
-              style={{ flex: 1.5, padding: '0.75rem', background: isEarly ? 'var(--accent-rose)' : undefined, borderColor: isEarly ? 'var(--accent-rose)' : undefined }}
+              className={isStandalone ? "btn-primary" : "btn-danger"}
+              style={{
+                flex: 1.5,
+                padding: '0.75rem',
+                background: isStandalone
+                  ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                  : isEarly
+                  ? 'var(--accent-rose)'
+                  : undefined,
+                borderColor: isStandalone
+                  ? '#10b981'
+                  : isEarly
+                  ? 'var(--accent-rose)'
+                  : undefined,
+                color: '#ffffff',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem'
+              }}
             >
-              <LogOut size={18} />
-              <span>{isEarly ? 'Submit Diary & Early Log Out' : 'Submit Diary & Clock Out'}</span>
+              {isStandalone ? (
+                <>
+                  <CheckCircle size={18} />
+                  <span>Save & Submit Work Diary</span>
+                </>
+              ) : isEarly ? (
+                <>
+                  <LogOut size={18} />
+                  <span>Submit Diary & Early Log Out</span>
+                </>
+              ) : (
+                <>
+                  <LogOut size={18} />
+                  <span>Submit Diary & Clock Out</span>
+                </>
+              )}
             </button>
           </div>
 

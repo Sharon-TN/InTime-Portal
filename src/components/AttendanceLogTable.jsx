@@ -370,6 +370,19 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                                 <Zap size={11} /> OT: {record.overtimeRange || 'Declared'}
                               </span>
                             )}
+                            {record.autoClosed && !matchingDiary && (
+                              <span style={{
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                color: '#f59e0b',
+                                background: 'rgba(245, 158, 11, 0.12)',
+                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                padding: '1px 5px',
+                                borderRadius: '4px'
+                              }} title="Employee exited or closed tab without submitting Daily Work Diary">
+                                Auto-Closed (Tab Closed)
+                              </span>
+                            )}
                           </div>
                           <div style={{
                             fontSize: '0.72rem',
