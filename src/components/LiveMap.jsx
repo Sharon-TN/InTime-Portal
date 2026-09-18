@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Navigation, Clock, ExternalLink, MapPin } from 'lucide-react';
-import { getGoogleMapsUrl } from '../utils/geoUtils';
+import { getGoogleMapsUrl, getISTDateString } from '../utils/geoUtils';
 import { useAttendance } from '../context/AttendanceContext';
 
 // Helper to generate initials avatar SVG if image fails
@@ -96,15 +96,36 @@ function MapAutoBounds({ pins }) {
 
 export default function LiveMap({ activeRecords = [], records = [], employees = [] }) {
   const { theme } = useAttendance();
+  const todayStr = getISTDateString();
 
-  // Combine records & employee profiles to ensure every employee has a pin on the map
-  const effectiveRecords = activeRecords.length > 0 ? activeRecords : records;
+  // Filter strictly for the current working day records
+  const rawRecords = (activeRecords && activeRecords.length > 0) ? activeRecords : (records || []);
+  const todayRecords = rawRecords.filter(rec => {
+    if (!rec) return false;
+    const recDate = rec.date || (rec.clockInIso ? rec.clockInIso.split('T')[0] : '');
+    return recDate === todayStr;
+  });
 
-  // Build map pin list
+  // Sort latest event first so we keep the most recent check-in/out for each employee today
+  const sortedTodayRecords = [...todayRecords].sort((a, b) => {
+    const timeA = a.clockInIso ? new Date(a.clockInIso).getTime() : 0;
+    const timeB = b.clockInIso ? new Date(b.clockInIso).getTime() : 0;
+    return timeB - timeA;
+  });
+
+  // Deduplicate by employeeId to maintain exactly one current location pin per employee
+  const latestTodayByEmp = new Map();
+  sortedTodayRecords.forEach(rec => {
+    if (rec.employeeId && !latestTodayByEmp.has(rec.employeeId)) {
+      latestTodayByEmp.set(rec.employeeId, rec);
+    }
+  });
+
+  const effectiveRecords = Array.from(latestTodayByEmp.values());
+
+  // Build map pin list strictly for current working day location pins
   const pins = [];
-  const processedEmpIds = new Set();
 
-  // 1. Process active clock-in & attendance records
   effectiveRecords.forEach(rec => {
     if (!rec || !rec.employeeId) return;
     const emp = employees.find(e => e.id === rec.employeeId);
@@ -131,35 +152,6 @@ export default function LiveMap({ activeRecords = [], records = [], employees = 
       clockInTime: rec.clockInTime || 'N/A',
       workMode: rec.workMode || emp?.workMode || 'Remote',
       isOnline: isOnline,
-      coords: { lat, lng }
-    });
-
-    processedEmpIds.add(rec.employeeId);
-  });
-
-  // 2. Include all remaining registered employees as OFF-DUTY pins
-  employees.forEach(emp => {
-    if (!emp || processedEmpIds.has(emp.id)) return;
-
-    let lat = emp.coordinates?.lat || 12.9716;
-    let lng = emp.coordinates?.lng || 77.5946;
-
-    // Offset stacked default pins
-    if (pins.some(p => Math.abs(p.coords.lat - lat) < 0.001 && Math.abs(p.coords.lng - lng) < 0.001)) {
-      lat += (Math.random() - 0.5) * 0.012;
-      lng += (Math.random() - 0.5) * 0.012;
-    }
-
-    pins.push({
-      id: `PIN_EMP_${emp.id}`,
-      employeeId: emp.id,
-      name: emp.name,
-      role: emp.role || emp.department || 'Staff',
-      avatar: getAvatarSrc(emp, null),
-      locationName: emp.defaultCity || emp.location || 'Registered Base',
-      clockInTime: 'Off Duty',
-      workMode: emp.workMode || 'Remote',
-      isOnline: false,
       coords: { lat, lng }
     });
   });

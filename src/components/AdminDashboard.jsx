@@ -44,7 +44,7 @@ export default function AdminDashboard() {
   const activeClockedIn = records.filter(r => r.status === 'CLOCK_IN').length;
   
   const todayStr = getISTDateString();
-  const todayRecords = records.filter(r => r.date === todayStr);
+  const todayRecords = records.filter(r => (r.date === todayStr || (r.clockInIso && r.clockInIso.split('T')[0] === todayStr)));
   const lateTodayCount = todayRecords.filter(r => r.latenessStatus === 'LATE').length;
   const overtimeCount = todayRecords.filter(r => r.isOvertime).length;
 
@@ -335,7 +335,7 @@ export default function AdminDashboard() {
             <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '1.25rem' }}>
               Live Multi-Employee GPS Map
             </h3>
-            <LiveMap activeRecords={records} employees={employees} defaultCoords={{ lat: 12.9716, lng: 77.5946 }} />
+            <LiveMap activeRecords={todayRecords} employees={employees} defaultCoords={{ lat: 12.9716, lng: 77.5946 }} />
           </div>
         </div>
       )}
