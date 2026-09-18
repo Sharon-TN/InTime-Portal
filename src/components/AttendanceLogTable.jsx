@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { MapPin, Search, Calendar, User, ExternalLink, Camera, X, Clock, Trash2, Zap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { MapPin, Search, Calendar, User, ExternalLink, Camera, X, Clock, Trash2, Zap, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { getGoogleMapsUrl, formatDateDDMMYYYY, formatWorkDurationHHMM, getISTDateString, toComparableDate, parseTimeToSeconds, toIstIso } from '../utils/geoUtils';
 import { useAttendance } from '../context/AttendanceContext';
 
@@ -63,6 +63,21 @@ export default function AttendanceLogTable({ records = [], employees = [], title
 
     return matchesSearch && matchesDate && matchesMode && matchesStatus;
   });
+
+  // Pagination logic (Strictly 5 records per page, latest logs first in descending order)
+  const RECORDS_PER_PAGE = 5;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Automatically reset to Page 1 when any filter or search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterDate, filterMode, filterStatus]);
+
+  const totalPages = Math.ceil(filteredRecords.length / RECORDS_PER_PAGE) || 1;
+  const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (validCurrentPage - 1) * RECORDS_PER_PAGE;
+  const endIndex = startIndex + RECORDS_PER_PAGE;
+  const paginatedRecords = filteredRecords.slice(startIndex, endIndex);
 
   return (
     <div className="glass-card" style={{ padding: '1.75rem', borderRadius: 'var(--radius-lg)' }}>
@@ -215,8 +230,8 @@ export default function AttendanceLogTable({ records = [], employees = [], title
             </tr>
           </thead>
           <tbody>
-            {filteredRecords.length > 0 ? (
-              filteredRecords.map(record => {
+            {paginatedRecords.length > 0 ? (
+              paginatedRecords.map(record => {
                 const emp = allEmployees.find(e => e.id === record.employeeId) || {
                   name: record.employeeName,
                   role: 'Employee'
@@ -523,6 +538,173 @@ export default function AttendanceLogTable({ records = [], employees = [], title
           </tbody>
         </table>
       </div>
+
+      {/* Modern Pagination Controls (Strictly 5 logs per page) */}
+      {filteredRecords.length > 0 && (
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          marginTop: '1.25rem',
+          paddingTop: '1.1rem',
+          borderTop: '1px solid var(--border-color)',
+          fontSize: '0.85rem'
+        }}>
+          {/* Left: Record Range Summary */}
+          <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+            <span>Showing</span>
+            <strong style={{ color: 'var(--text-main)' }}>
+              {startIndex + 1} – {Math.min(endIndex, filteredRecords.length)}
+            </strong>
+            <span>of</span>
+            <strong style={{ color: 'var(--text-main)' }}>{filteredRecords.length}</strong>
+            <span>records</span>
+            <span style={{ margin: '0 0.25rem', opacity: 0.4 }}>•</span>
+            <span>Page <strong style={{ color: 'var(--primary)' }}>{validCurrentPage}</strong> of <strong>{totalPages}</strong></span>
+          </div>
+
+          {/* Right: Navigation Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            {/* First Page Button */}
+            <button
+              type="button"
+              onClick={() => setCurrentPage(1)}
+              disabled={validCurrentPage === 1}
+              title="First Page"
+              style={{
+                padding: '0.4rem 0.55rem',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-input)',
+                color: validCurrentPage === 1 ? 'var(--text-subtle)' : 'var(--text-main)',
+                cursor: validCurrentPage === 1 ? 'not-allowed' : 'pointer',
+                opacity: validCurrentPage === 1 ? 0.4 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <ChevronsLeft size={16} />
+            </button>
+
+            {/* Previous Page Button */}
+            <button
+              type="button"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={validCurrentPage === 1}
+              title="Previous Page"
+              style={{
+                padding: '0.4rem 0.75rem',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-input)',
+                color: validCurrentPage === 1 ? 'var(--text-subtle)' : 'var(--text-main)',
+                cursor: validCurrentPage === 1 ? 'not-allowed' : 'pointer',
+                opacity: validCurrentPage === 1 ? 0.4 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                fontWeight: 600,
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <ChevronLeft size={16} />
+              <span>Prev</span>
+            </button>
+
+            {/* Dynamic Numeric Page Pills */}
+            {(() => {
+              const pages = [];
+              const maxVisible = 5;
+              let start = Math.max(1, validCurrentPage - 2);
+              let end = Math.min(totalPages, start + maxVisible - 1);
+              if (end - start < maxVisible - 1) {
+                start = Math.max(1, end - maxVisible + 1);
+              }
+
+              for (let i = start; i <= end; i++) {
+                const isActive = i === validCurrentPage;
+                pages.push(
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setCurrentPage(i)}
+                    style={{
+                      minWidth: '34px',
+                      height: '34px',
+                      padding: '0 0.5rem',
+                      borderRadius: 'var(--radius-sm)',
+                      border: isActive ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                      background: isActive
+                        ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)'
+                        : 'var(--bg-input)',
+                      color: isActive ? '#ffffff' : 'var(--text-main)',
+                      fontWeight: isActive ? 800 : 600,
+                      cursor: 'pointer',
+                      boxShadow: isActive ? '0 3px 10px rgba(59, 130, 246, 0.4)' : 'none',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {i}
+                  </button>
+                );
+              }
+              return pages;
+            })()}
+
+            {/* Next Page Button */}
+            <button
+              type="button"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={validCurrentPage === totalPages}
+              title="Next Page"
+              style={{
+                padding: '0.4rem 0.75rem',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-input)',
+                color: validCurrentPage === totalPages ? 'var(--text-subtle)' : 'var(--text-main)',
+                cursor: validCurrentPage === totalPages ? 'not-allowed' : 'pointer',
+                opacity: validCurrentPage === totalPages ? 0.4 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                fontWeight: 600,
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span>Next</span>
+              <ChevronRight size={16} />
+            </button>
+
+            {/* Last Page Button */}
+            <button
+              type="button"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={validCurrentPage === totalPages}
+              title="Last Page"
+              style={{
+                padding: '0.4rem 0.55rem',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-input)',
+                color: validCurrentPage === totalPages ? 'var(--text-subtle)' : 'var(--text-main)',
+                cursor: validCurrentPage === totalPages ? 'not-allowed' : 'pointer',
+                opacity: validCurrentPage === totalPages ? 0.4 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <ChevronsRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* View Captured Selfie Inspection Modal */}
       {activeSelfieRecord && (
