@@ -240,20 +240,29 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                 const recDate = record.date || (record.clockInIso ? record.clockInIso.split('T')[0] : '');
                 const formattedDate = formatDateDDMMYYYY(recDate);
 
-                // Cross-reference work diary if record was autoClosed, unclosed, or differs from diary submission
+                // Cross-reference work diary if record was autoClosed, unclosed from past day, or differs from diary submission
+                const isPastDay = recDate && recDate < todayIst;
                 const matchingDiary = workDiaries.find(d =>
                   d.employeeId === record.employeeId && (d.date === recDate || toComparableDate(d.date) === toComparableDate(recDate))
                 );
 
-                const effectiveClockOutTime = (matchingDiary && matchingDiary.submittedAt && (record.autoClosed || !record.clockOutTime || (record.clockOutTime === '06:00 PM' && matchingDiary.submittedAt !== '06:00 PM')))
+                const diaryIsAfterClockIn = matchingDiary && matchingDiary.submittedAt && (!record.clockInTime || parseTimeToSeconds(matchingDiary.submittedAt) >= parseTimeToSeconds(record.clockInTime));
+
+                const shouldReconcileWithDiary = diaryIsAfterClockIn && (
+                  record.autoClosed || 
+                  (isPastDay && !record.clockOutTime) || 
+                  (record.clockOutTime === '06:00 PM' && matchingDiary.submittedAt !== '06:00 PM')
+                );
+
+                const effectiveClockOutTime = shouldReconcileWithDiary
                   ? matchingDiary.submittedAt
                   : record.clockOutTime;
 
-                const effectiveClockOutIso = (matchingDiary && matchingDiary.submittedAt && (record.autoClosed || !record.clockOutTime || (record.clockOutTime === '06:00 PM' && matchingDiary.submittedAt !== '06:00 PM')))
+                const effectiveClockOutIso = shouldReconcileWithDiary
                   ? (matchingDiary.createdAt || toIstIso(recDate, matchingDiary.submittedAt))
                   : record.clockOutIso;
 
-                const effectiveIsEarlyClockOut = (matchingDiary && matchingDiary.submittedAt && (record.autoClosed || record.clockOutTime === '06:00 PM'))
+                const effectiveIsEarlyClockOut = shouldReconcileWithDiary
                   ? (parseTimeToSeconds(effectiveClockOutTime) < parseTimeToSeconds('06:00 PM'))
                   : !!record.isEarlyClockOut;
 

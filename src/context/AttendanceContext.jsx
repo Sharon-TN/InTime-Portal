@@ -97,8 +97,13 @@ export const AttendanceProvider = ({ children }) => {
 
           if (matchingDiary && matchingDiary.submittedAt) {
             const submittedTime = matchingDiary.submittedAt;
-            // If shift was auto-closed at 6PM, unclosed, or differs from diary submission, reconcile with diary
-            if (item.autoClosed || item.status === 'CLOCK_IN' || (item.clockOutTime === '06:00 PM' && submittedTime !== '06:00 PM')) {
+            // Only reconcile with diary if:
+            // 1. Shift was explicitly auto-closed, OR
+            // 2. Shift is unclosed from a PAST day (Protection B), OR
+            // 3. Shift is already closed at 6PM but diary has different actual exit time
+            // AND diary submission was at or after clock-in time
+            const isAfterClockIn = !item.clockInTime || parseTimeToSeconds(submittedTime) >= parseTimeToSeconds(item.clockInTime);
+            if (isAfterClockIn && (item.autoClosed || (isPastDay && item.status === 'CLOCK_IN') || (item.clockOutTime === '06:00 PM' && submittedTime !== '06:00 PM'))) {
               const isEarly = parseTimeToSeconds(submittedTime) < parseTimeToSeconds('06:00 PM');
               return {
                 ...item,
@@ -347,7 +352,8 @@ export const AttendanceProvider = ({ children }) => {
 
           if (matchingDiary && matchingDiary.submittedAt) {
             const submittedTime = matchingDiary.submittedAt;
-            if (item.autoClosed || item.status === 'CLOCK_IN' || (item.clockOutTime === '06:00 PM' && submittedTime !== '06:00 PM')) {
+            const isAfterClockIn = !item.clockInTime || parseTimeToSeconds(submittedTime) >= parseTimeToSeconds(item.clockInTime);
+            if (isAfterClockIn && (item.autoClosed || (isPastDay && item.status === 'CLOCK_IN') || (item.clockOutTime === '06:00 PM' && submittedTime !== '06:00 PM'))) {
               const isEarly = parseTimeToSeconds(submittedTime) < parseTimeToSeconds('06:00 PM');
               item = {
                 ...item,
