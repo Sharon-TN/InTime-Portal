@@ -89,43 +89,52 @@ export const AttendanceProvider = ({ children }) => {
 
         const reconciled = parsed.map(item => {
           const isPastDay = item.date && item.date < todayIst;
-          
-          // Check if employee had submitted a work diary for this date
-          const matchingDiary = savedDiaries.find(d =>
-            d.employeeId === item.employeeId && (d.date === item.date || toComparableDate(d.date) === toComparableDate(item.date))
-          );
 
-          if (matchingDiary && matchingDiary.submittedAt) {
-            const submittedTime = matchingDiary.submittedAt;
-            // Only reconcile with diary if:
-            // 1. Shift was explicitly auto-closed, OR
-            // 2. Shift is unclosed from a PAST day (Protection B), OR
-            // 3. Shift is already closed at 6PM but diary has different actual exit time
-            // AND diary submission was at or after clock-in time
-            const isAfterClockIn = !item.clockInTime || parseTimeToSeconds(submittedTime) >= parseTimeToSeconds(item.clockInTime);
-            if (isAfterClockIn && (item.autoClosed || (isPastDay && item.status === 'CLOCK_IN') || (item.clockOutTime === '06:00 PM' && submittedTime !== '06:00 PM'))) {
-              const isEarly = parseTimeToSeconds(submittedTime) < parseTimeToSeconds('06:00 PM');
+          if (isPastDay) {
+            // Check if employee had submitted a work diary for this date
+            const matchingDiary = savedDiaries.find(d =>
+              d.employeeId === item.employeeId && (d.date === item.date || toComparableDate(d.date) === toComparableDate(item.date))
+            );
+
+            if (matchingDiary && matchingDiary.submittedAt) {
+              const submittedTime = matchingDiary.submittedAt;
+              const isAfterClockIn = !item.clockInTime || parseTimeToSeconds(submittedTime) >= parseTimeToSeconds(item.clockInTime);
+              if (isAfterClockIn && (item.autoClosed || item.status === 'CLOCK_IN' || (item.clockOutTime === '06:00 PM' && submittedTime !== '06:00 PM'))) {
+                const isEarly = parseTimeToSeconds(submittedTime) < parseTimeToSeconds('06:00 PM');
+                return {
+                  ...item,
+                  status: 'CLOCK_OUT',
+                  clockOutTime: submittedTime,
+                  clockOutIso: matchingDiary.createdAt || toIstIso(item.date, submittedTime),
+                  workDiarySubmitted: true,
+                  isEarlyClockOut: isEarly,
+                  autoClosed: false
+                };
+              }
+            } else if (item.status === 'CLOCK_IN') {
               return {
                 ...item,
                 status: 'CLOCK_OUT',
-                clockOutTime: submittedTime,
-                clockOutIso: matchingDiary.createdAt || toIstIso(item.date, submittedTime),
-                workDiarySubmitted: true,
-                isEarlyClockOut: isEarly,
-                autoClosed: false
+                clockOutTime: '06:00 PM',
+                clockOutIso: `${item.date}T18:00:00+05:30`,
+                autoClosed: true
               };
             }
-          }
-
-          // Only reconcile unclosed shifts from previous days without diaries
-          if (item.status === 'CLOCK_IN' && isPastDay) {
-            return {
-              ...item,
-              status: 'CLOCK_OUT',
-              clockOutTime: '06:00 PM',
-              clockOutIso: `${item.date}T18:00:00+05:30`,
-              autoClosed: true
-            };
+          } else {
+            // For current working day: active shifts must remain active
+            if (item.clockInTime && item.clockOutTime) {
+              const inSec = parseTimeToSeconds(item.clockInTime);
+              const outSec = parseTimeToSeconds(item.clockOutTime);
+              if (outSec < inSec) {
+                return {
+                  ...item,
+                  status: 'CLOCK_IN',
+                  clockOutTime: null,
+                  clockOutIso: null,
+                  isEarlyClockOut: false
+                };
+              }
+            }
           }
           return item;
         });
@@ -343,38 +352,56 @@ export const AttendanceProvider = ({ children }) => {
         recs.forEach(row => {
           let item = row.data ? { ...row.data, id: row.id } : row;
 
-          // Auto-reconcile with submitted work diaries
+          // Auto-reconcile with submitted work diaries ONLY for PAST days
           const isPastDay = item.date && item.date < todayIst;
 
-          const matchingDiary = allDiaries.find(d =>
-            d.employeeId === item.employeeId && (d.date === item.date || toComparableDate(d.date) === toComparableDate(item.date))
-          );
+          if (isPastDay) {
+            const matchingDiary = allDiaries.find(d =>
+              d.employeeId === item.employeeId && (d.date === item.date || toComparableDate(d.date) === toComparableDate(item.date))
+            );
 
-          if (matchingDiary && matchingDiary.submittedAt) {
-            const submittedTime = matchingDiary.submittedAt;
-            const isAfterClockIn = !item.clockInTime || parseTimeToSeconds(submittedTime) >= parseTimeToSeconds(item.clockInTime);
-            if (isAfterClockIn && (item.autoClosed || (isPastDay && item.status === 'CLOCK_IN') || (item.clockOutTime === '06:00 PM' && submittedTime !== '06:00 PM'))) {
-              const isEarly = parseTimeToSeconds(submittedTime) < parseTimeToSeconds('06:00 PM');
+            if (matchingDiary && matchingDiary.submittedAt) {
+              const submittedTime = matchingDiary.submittedAt;
+              const isAfterClockIn = !item.clockInTime || parseTimeToSeconds(submittedTime) >= parseTimeToSeconds(item.clockInTime);
+              if (isAfterClockIn && (item.autoClosed || item.status === 'CLOCK_IN' || (item.clockOutTime === '06:00 PM' && submittedTime !== '06:00 PM'))) {
+                const isEarly = parseTimeToSeconds(submittedTime) < parseTimeToSeconds('06:00 PM');
+                item = {
+                  ...item,
+                  status: 'CLOCK_OUT',
+                  clockOutTime: submittedTime,
+                  clockOutIso: matchingDiary.createdAt || toIstIso(item.date, submittedTime),
+                  workDiarySubmitted: true,
+                  isEarlyClockOut: isEarly,
+                  autoClosed: false
+                };
+                saveRecordToSupabase(item);
+              }
+            } else if (item.status === 'CLOCK_IN') {
               item = {
                 ...item,
                 status: 'CLOCK_OUT',
-                clockOutTime: submittedTime,
-                clockOutIso: matchingDiary.createdAt || toIstIso(item.date, submittedTime),
-                workDiarySubmitted: true,
-                isEarlyClockOut: isEarly,
-                autoClosed: false
+                clockOutTime: '06:00 PM',
+                clockOutIso: `${item.date}T18:00:00+05:30`,
+                autoClosed: true
               };
               saveRecordToSupabase(item);
             }
-          } else if (item.status === 'CLOCK_IN' && isPastDay) {
-            item = {
-              ...item,
-              status: 'CLOCK_OUT',
-              clockOutTime: '06:00 PM',
-              clockOutIso: `${item.date}T18:00:00+05:30`,
-              autoClosed: true
-            };
-            saveRecordToSupabase(item);
+          } else {
+            // For current working day: active shifts (CLOCK_IN) must remain active
+            if (item.clockInTime && item.clockOutTime) {
+              const inSec = parseTimeToSeconds(item.clockInTime);
+              const outSec = parseTimeToSeconds(item.clockOutTime);
+              if (outSec < inSec) {
+                item = {
+                  ...item,
+                  status: 'CLOCK_IN',
+                  clockOutTime: null,
+                  clockOutIso: null,
+                  isEarlyClockOut: false
+                };
+                saveRecordToSupabase(item);
+              }
+            }
           }
 
           cloudMap.set(item.id, item);
@@ -1214,6 +1241,48 @@ export const AttendanceProvider = ({ children }) => {
     return { success: true };
   };
 
+  // Delete only a single specific work diary entry (Admin bin action)
+  const deleteWorkDiary = async (diaryId) => {
+    try {
+      const targetDiary = workDiaries.find(d => d.id === diaryId);
+      setWorkDiaries(prev => {
+        const updated = prev.filter(d => d.id !== diaryId);
+        safeSetLocalStorage('intime_work_diaries', updated);
+        return updated;
+      });
+
+      if (targetDiary) {
+        // Also update any attendance record associated with this employee & date
+        setRecords(prev => {
+          let hasChange = false;
+          const updated = prev.map(r => {
+            const rDate = r.date || (r.clockInIso && r.clockInIso.split('T')[0]);
+            if (r.employeeId === targetDiary.employeeId && rDate === targetDiary.date) {
+              hasChange = true;
+              return {
+                ...r,
+                workDiarySubmitted: false
+              };
+            }
+            return r;
+          });
+          if (hasChange) {
+            safeSetLocalStorage('intime_records', updated);
+          }
+          return updated;
+        });
+      }
+
+      if (supabase) {
+        const { error } = await supabase.from('work_diaries').delete().eq('id', diaryId);
+        if (error) console.error("Error deleting work diary from Supabase:", error);
+      }
+    } catch (e) {
+      console.warn("Delete work diary error:", e);
+    }
+    return { success: true };
+  };
+
   // Modal control state for employee profile modal
   const [showProfileModal, setShowProfileModal] = useState(false);
 
@@ -1241,6 +1310,7 @@ export const AttendanceProvider = ({ children }) => {
         clearAllData,
         deleteEmployeeAccount,
         deleteAttendanceRecord,
+        deleteWorkDiary,
         clockIn,
         clockOut,
         submitDailyWorkDiary,

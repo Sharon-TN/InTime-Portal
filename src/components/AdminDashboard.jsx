@@ -12,6 +12,8 @@ import WorkDiaryReviewModule from './WorkDiaryReviewModule';
 import EmployeeAnalyticsModule from './EmployeeAnalyticsModule';
 import AventiqEmployeeDetailsModule from './AventiqEmployeeDetailsModule';
 import { formatTime12Hour, getISTDateString } from '../utils/geoUtils';
+import aventiqLogo from '../assets/aventiq-logo.png';
+import aventiqLogoDark from '../assets/aventiq-logo-dark.png';
 import {
   Users, CheckCircle, Clock, AlertCircle, Settings, Trash2, Sliders, MapPin,
   BookOpen, Calendar, FileText, Folder, Radio, ShieldCheck, BarChart3, UserX, UserMinus, AlertTriangle, FileSpreadsheet, Zap
@@ -25,7 +27,8 @@ export default function AdminDashboard() {
     shiftPolicy,
     setShiftPolicy,
     clearAllData,
-    deleteEmployeeAccount
+    deleteEmployeeAccount,
+    theme
   } = useAttendance();
 
   const pendingLeavesCount = (leaves || []).filter(l => l.status === 'PENDING').length;
@@ -62,6 +65,63 @@ export default function AdminDashboard() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
       
+      {/* Aventiq Brand Full-Width Banner */}
+      <div
+        className="glass-card"
+        style={{
+          width: '100%',
+          padding: '1.25rem 2rem',
+          borderRadius: 'var(--radius-lg)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
+          overflow: 'hidden',
+          background: theme === 'dark'
+            ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.92) 0%, rgba(24, 32, 47, 0.85) 100%)'
+            : 'linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(240, 249, 255, 0.95) 50%, rgba(238, 242, 255, 0.95) 100%)',
+          border: '1px solid var(--border-color)',
+          boxShadow: '0 8px 30px rgba(0, 160, 227, 0.1)'
+        }}
+      >
+        {/* Ambient subtle glow lights */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '-50%',
+            left: '20%',
+            width: '320px',
+            height: '200px',
+            background: 'radial-gradient(ellipse, rgba(0, 160, 227, 0.14) 0%, transparent 70%)',
+            pointerEvents: 'none'
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '-50%',
+            right: '20%',
+            width: '320px',
+            height: '200px',
+            background: 'radial-gradient(ellipse, rgba(99, 102, 241, 0.12) 0%, transparent 70%)',
+            pointerEvents: 'none'
+          }}
+        />
+        <img
+          src={theme === 'dark' ? aventiqLogoDark : aventiqLogo}
+          alt="Aventiq Innovations"
+          style={{
+            height: '76px',
+            maxWidth: '100%',
+            width: 'auto',
+            objectFit: 'contain',
+            filter: 'drop-shadow(0 4px 14px rgba(0, 160, 227, 0.18))',
+            position: 'relative',
+            zIndex: 1
+          }}
+        />
+      </div>
+
       {/* Admin Welcome & Header Navigation */}
       <div className="glass-card" style={{ padding: '1.75rem 2rem', borderRadius: 'var(--radius-lg)' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1.25rem', marginBottom: '1.5rem' }}>

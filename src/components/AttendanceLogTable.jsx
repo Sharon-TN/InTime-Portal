@@ -93,7 +93,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
 
         {/* Filter Controls */}
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
-          
+
           {/* Search Box */}
           <div style={{ position: 'relative' }}>
             <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-subtle)' }} />
@@ -248,29 +248,40 @@ export default function AttendanceLogTable({ records = [], employees = [], title
 
                 const diaryIsAfterClockIn = matchingDiary && matchingDiary.submittedAt && (!record.clockInTime || parseTimeToSeconds(matchingDiary.submittedAt) >= parseTimeToSeconds(record.clockInTime));
 
-                const shouldReconcileWithDiary = diaryIsAfterClockIn && (
+                // Reconciling with diary only applies to past days
+                const shouldReconcileWithDiary = isPastDay && diaryIsAfterClockIn && (
                   record.autoClosed || 
-                  (isPastDay && !record.clockOutTime) || 
+                  !record.clockOutTime || 
                   (record.clockOutTime === '06:00 PM' && matchingDiary.submittedAt !== '06:00 PM')
                 );
 
-                const effectiveClockOutTime = shouldReconcileWithDiary
-                  ? matchingDiary.submittedAt
-                  : record.clockOutTime;
+                const isCurrentlyActiveShift = record.status === 'CLOCK_IN' && !isPastDay;
 
-                const effectiveClockOutIso = shouldReconcileWithDiary
-                  ? (matchingDiary.createdAt || toIstIso(recDate, matchingDiary.submittedAt))
-                  : record.clockOutIso;
+                let effectiveClockOutTime = null;
+                let effectiveClockOutIso = null;
+                let effectiveIsEarlyClockOut = false;
 
-                const effectiveIsEarlyClockOut = shouldReconcileWithDiary
-                  ? (parseTimeToSeconds(effectiveClockOutTime) < parseTimeToSeconds('06:00 PM'))
-                  : !!record.isEarlyClockOut;
+                if (!isCurrentlyActiveShift) {
+                  if (shouldReconcileWithDiary) {
+                    effectiveClockOutTime = matchingDiary.submittedAt;
+                    effectiveClockOutIso = matchingDiary.createdAt || toIstIso(recDate, matchingDiary.submittedAt);
+                    effectiveIsEarlyClockOut = parseTimeToSeconds(effectiveClockOutTime) < parseTimeToSeconds('06:00 PM');
+                  } else if (record.clockOutTime) {
+                    const inSec = record.clockInTime ? parseTimeToSeconds(record.clockInTime) : 0;
+                    const outSec = parseTimeToSeconds(record.clockOutTime);
+                    if (outSec >= inSec) {
+                      effectiveClockOutTime = record.clockOutTime;
+                      effectiveClockOutIso = record.clockOutIso;
+                      effectiveIsEarlyClockOut = !!record.isEarlyClockOut;
+                    }
+                  }
+                }
 
                 const workDurationStr = formatWorkDurationHHMM(record.clockInIso, effectiveClockOutIso, recDate, record.clockInTime, effectiveClockOutTime);
 
                 return (
                   <tr key={record.id}>
-                    
+
                     {/* Employee info */}
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -719,7 +730,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
       {activeSelfieRecord && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '1rem' }}>
           <div className="glass-card" style={{ width: '100%', maxWidth: '460px', padding: '1.75rem', borderRadius: 'var(--radius-lg)' }}>
-            
+
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
               <div>
                 <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -787,7 +798,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
       {recordToDelete && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '1rem' }}>
           <div className="glass-card" style={{ width: '100%', maxWidth: '440px', padding: '1.75rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--accent-rose)' }}>
-            
+
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-rose)', fontWeight: 800, fontSize: '1.1rem' }}>
                 <Trash2 size={22} />

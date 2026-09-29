@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useAttendance } from '../context/AttendanceContext';
-import { Clock, ShieldCheck, UserCheck, UserPlus, LogIn, Mail, Lock, Check, Camera, Upload, User, ArrowRight, ArrowLeft, FileCheck, Eye, EyeOff } from 'lucide-react';
+import { ShieldCheck, UserCheck, UserPlus, LogIn, Mail, Lock, Check, Camera, Upload, User, ArrowRight, ArrowLeft, FileCheck, Eye, EyeOff } from 'lucide-react';
+import aventiqLogo from '../assets/aventiq-logo.png';
+import aventiqLogoDark from '../assets/aventiq-logo-dark.png';
 
 export default function AuthView() {
-  const { login, registerEmployee } = useAttendance();
+  const { login, registerEmployee, theme } = useAttendance();
   const [tab, setTab] = useState('EMPLOYEE_LOGIN'); // EMPLOYEE_LOGIN | ADMIN_LOGIN | REGISTER
 
   // Login states
@@ -309,8 +311,18 @@ export default function AuthView() {
         
         {/* Brand Header */}
         <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
-          <div className="brand-logo" style={{ width: '52px', height: '52px', margin: '0 auto 0.75rem auto', borderRadius: 'var(--radius-md)' }}>
-            <Clock size={28} strokeWidth={2.5} />
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '1.1rem' }}>
+            <img
+              src={theme === 'dark' ? aventiqLogoDark : aventiqLogo}
+              alt="Aventiq Innovations"
+              style={{
+                height: '62px',
+                maxWidth: '280px',
+                width: 'auto',
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 4px 12px rgba(0, 160, 227, 0.18))'
+              }}
+            />
           </div>
           <h2 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)' }}>InTime Portal</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: '0.3rem' }}>
