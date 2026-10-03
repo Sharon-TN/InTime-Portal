@@ -22,7 +22,7 @@ function MainContent() {
     );
   }
 
-  // 3. If logged in as Employee (Prakash, Sambhavi, etc.), show Employee Dashboard
+  // 3. If logged in as Employee (Shambhavi, Priyanka, etc.), show Employee Dashboard
   return (
     <main className="main-container">
       <EmployeeDashboard />

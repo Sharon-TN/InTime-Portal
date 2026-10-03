@@ -54,6 +54,23 @@ export const AttendanceProvider = ({ children }) => {
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
   };
 
+  // Helper to ensure Prakash's records are completely omitted and purged from all views & states
+  const isPrakashRecord = (item) => {
+    if (!item) return false;
+    const str = (
+      (item.name || '') + ' ' +
+      (item.firstName || '') + ' ' +
+      (item.lastName || '') + ' ' +
+      (item.employeeName || '') + ' ' +
+      (item.email || '') + ' ' +
+      (item.companyEmail || '') + ' ' +
+      (item.personalEmail || '') + ' ' +
+      (item.employeeId || '') + ' ' +
+      (item.id || '')
+    ).toLowerCase();
+    return str.includes('prakash');
+  };
+
   const [employees, setEmployees] = useState(() => {
     try {
       if (!localStorage.getItem(PURGE_KEY)) {
@@ -68,7 +85,7 @@ export const AttendanceProvider = ({ children }) => {
         return [];
       }
       const saved = localStorage.getItem('intime_employees');
-      return saved ? JSON.parse(saved) : INITIAL_EMPLOYEES;
+      return saved ? JSON.parse(saved).filter(e => !isPrakashRecord(e)) : INITIAL_EMPLOYEES;
     } catch (e) {
       return INITIAL_EMPLOYEES;
     }
@@ -81,7 +98,7 @@ export const AttendanceProvider = ({ children }) => {
     const saved = localStorage.getItem('intime_records');
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
+        const parsed = JSON.parse(saved).filter(r => !isPrakashRecord(r));
         const todayIst = getISTDateString();
         const istTime = getISTTime();
         const savedDiariesRaw = localStorage.getItem('intime_work_diaries');
@@ -191,7 +208,8 @@ export const AttendanceProvider = ({ children }) => {
     const saved = localStorage.getItem('intime_work_diaries');
     if (saved) {
       try {
-        return sortDiariesDescending(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        return sortDiariesDescending(parsed.filter(d => !isPrakashRecord(d)));
       } catch (e) {
         console.error("Failed to parse saved work diaries", e);
       }
@@ -320,7 +338,9 @@ export const AttendanceProvider = ({ children }) => {
         const cloudMap = new Map();
         emps.forEach(row => {
           const item = row.data ? { ...row.data, id: row.id, employeeId: row.employee_id || row.data.employeeId } : row;
-          cloudMap.set(item.id || item.email, item);
+          if (!isPrakashRecord(item)) {
+            cloudMap.set(item.id || item.email, item);
+          }
         });
         const cloudEmps = Array.from(cloudMap.values());
         setEmployees(cloudEmps);
@@ -351,6 +371,7 @@ export const AttendanceProvider = ({ children }) => {
 
         recs.forEach(row => {
           let item = row.data ? { ...row.data, id: row.id } : row;
+          if (isPrakashRecord(item)) return;
 
           // Auto-reconcile with submitted work diaries ONLY for PAST days
           const isPastDay = item.date && item.date < todayIst;
@@ -492,11 +513,13 @@ export const AttendanceProvider = ({ children }) => {
           safeSetLocalStorage('intime_shift_policy', policyRow.data);
         }
 
-        const validDiaries = diaries.filter(d => d.id !== 'SYSTEM_SHIFT_POLICY');
+        const validDiaries = diaries.filter(d => d.id !== 'SYSTEM_SHIFT_POLICY' && !isPrakashRecord(d) && !isPrakashRecord(d.data));
         const cloudMap = new Map();
         validDiaries.forEach(row => {
           const item = row.data ? { ...row.data, id: row.id } : row;
-          cloudMap.set(item.id, item);
+          if (!isPrakashRecord(item)) {
+            cloudMap.set(item.id, item);
+          }
         });
         const cloudDiaries = sortDiariesDescending(Array.from(cloudMap.values()));
         setWorkDiaries(cloudDiaries);
@@ -519,11 +542,35 @@ export const AttendanceProvider = ({ children }) => {
     ]);
   };
 
+  // Proactive cleanup of any legacy cached entries for Prakash from localStorage
+  useEffect(() => {
+    try {
+      const keys = ['intime_employees', 'intime_records', 'intime_work_diaries', 'intime_leaves', 'intime_payslips', 'intime_documents'];
+      keys.forEach(k => {
+        const raw = localStorage.getItem(k);
+        if (raw && raw.toLowerCase().includes('prakash')) {
+          try {
+            const arr = JSON.parse(raw);
+            if (Array.isArray(arr)) {
+              safeSetLocalStorage(k, arr.filter(item => !isPrakashRecord(item)));
+            }
+          } catch (e) {}
+        }
+      });
+      const userRaw = localStorage.getItem('intime_user');
+      if (userRaw && userRaw.toLowerCase().includes('prakash')) {
+        localStorage.removeItem('intime_user');
+      }
+    } catch (e) {}
+  }, []);
+
   // Push local storage employee profiles up to Supabase on load (for newly seeded profiles)
   useEffect(() => {
     if (employees && employees.length > 0) {
       employees.forEach(emp => {
-        saveEmployeeToSupabase(emp);
+        if (!isPrakashRecord(emp)) {
+          saveEmployeeToSupabase(emp);
+        }
       });
     }
   }, []);
