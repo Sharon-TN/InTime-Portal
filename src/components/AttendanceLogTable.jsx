@@ -29,15 +29,22 @@ export default function AttendanceLogTable({ records = [], employees = [], title
   };
   const yesterdayIst = getYesterdayIst();
 
+  // Helper to extract clean comparable YYYY-MM-DD date string
+  const getRecordDate = (r) => {
+    if (!r) return '';
+    const raw = r.date || (r.clockInIso ? r.clockInIso.split('T')[0] : '');
+    return toComparableDate(raw);
+  };
+
   // Extract all unique dates from records, sorted strictly latest first down to oldest
   const availableDates = Array.from(
-    new Set(records.map(r => r.date || (r.clockInIso ? r.clockInIso.split('T')[0] : '')).filter(Boolean))
+    new Set(records.map(r => getRecordDate(r)).filter(Boolean))
   ).sort((a, b) => b.localeCompare(a));
 
   // Sort records: latest date login logs first, followed by yesterday, day before, etc.
   const sortedRecords = [...records].sort((a, b) => {
-    const dateA = a.date || (a.clockInIso ? a.clockInIso.split('T')[0] : '');
-    const dateB = b.date || (b.clockInIso ? b.clockInIso.split('T')[0] : '');
+    const dateA = getRecordDate(a);
+    const dateB = getRecordDate(b);
     if (dateA !== dateB) {
       return dateB.localeCompare(dateA); // Latest date on top
     }
@@ -56,16 +63,18 @@ export default function AttendanceLogTable({ records = [], employees = [], title
       (emp.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (record.locationName || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-    const recordDate = record.date || (record.clockInIso ? record.clockInIso.split('T')[0] : '');
-    const matchesDate = filterDate === 'ALL' || recordDate === filterDate;
+    const recordDate = getRecordDate(record);
+    const matchesDate = filterDate === 'ALL' || recordDate === toComparableDate(filterDate);
     const matchesMode = filterMode === 'ALL' || record.workMode === filterMode;
     const matchesStatus = filterStatus === 'ALL' || record.latenessStatus === filterStatus;
 
     return matchesSearch && matchesDate && matchesMode && matchesStatus;
   });
 
-  // Pagination logic (Strictly 5 records per page, latest logs first in descending order)
-  const RECORDS_PER_PAGE = 5;
+  // Date-based pagination:
+  // Page 1: Present day's (Today's) logs
+  // Page 2: Yesterday's logs
+  // Page 3+: Preceding days' logs in descending calendar order
   const [currentPage, setCurrentPage] = useState(1);
 
   // Automatically reset to Page 1 when any filter or search query changes
@@ -73,11 +82,31 @@ export default function AttendanceLogTable({ records = [], employees = [], title
     setCurrentPage(1);
   }, [searchTerm, filterDate, filterMode, filterStatus]);
 
-  const totalPages = Math.ceil(filteredRecords.length / RECORDS_PER_PAGE) || 1;
+  // Extract distinct dates from filteredRecords, ordered descending
+  const distinctFilteredDates = Array.from(
+    new Set(filteredRecords.map(r => getRecordDate(r)).filter(Boolean))
+  ).sort((a, b) => b.localeCompare(a));
+
+  // Determine pagination dates sequence:
+  // In standard view (filterDate === 'ALL' and no search/mode/status filters),
+  // guarantee todayIst is on Page 1 (index 0) and yesterdayIst on Page 2 (index 1)
+  let paginatedDates = [...distinctFilteredDates];
+  if (filterDate === 'ALL' && !searchTerm && filterMode === 'ALL' && filterStatus === 'ALL') {
+    paginatedDates = paginatedDates.filter(d => d !== todayIst);
+    paginatedDates.unshift(todayIst);
+  }
+
+  // Fallback if no dates exist
+  if (paginatedDates.length === 0) {
+    paginatedDates = [filterDate !== 'ALL' ? toComparableDate(filterDate) : todayIst];
+  }
+
+  const totalPages = Math.max(1, paginatedDates.length);
   const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
-  const startIndex = (validCurrentPage - 1) * RECORDS_PER_PAGE;
-  const endIndex = startIndex + RECORDS_PER_PAGE;
-  const paginatedRecords = filteredRecords.slice(startIndex, endIndex);
+  const currentDateForPage = paginatedDates[validCurrentPage - 1] || todayIst;
+
+  // Records for current page: strictly the logs belonging to this calendar day
+  const paginatedRecords = filteredRecords.filter(r => getRecordDate(r) === currentDateForPage);
 
   return (
     <div className="glass-card" style={{ padding: '1.75rem', borderRadius: 'var(--radius-lg)' }}>
@@ -135,7 +164,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
             >
               <option value="ALL">📅 All Dates ({availableDates.length} days recorded)</option>
               {availableDates.map(dateStr => {
-                const count = records.filter(r => (r.date || (r.clockInIso && r.clockInIso.split('T')[0])) === dateStr).length;
+                const count = records.filter(r => getRecordDate(r) === dateStr).length;
                 let label = formatDateDDMMYYYY(dateStr);
                 if (dateStr === todayIst) label += ' (Today)';
                 else if (dateStr === yesterdayIst) label += ' (Yesterday)';
@@ -237,7 +266,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
                   role: 'Employee'
                 };
 
-                const recDate = record.date || (record.clockInIso ? record.clockInIso.split('T')[0] : '');
+                const recDate = getRecordDate(record);
                 const formattedDate = formatDateDDMMYYYY(recDate);
 
                 // Cross-reference work diary if record was autoClosed, unclosed from past day, or differs from diary submission
@@ -551,7 +580,21 @@ export default function AttendanceLogTable({ records = [], employees = [], title
             ) : (
               <tr>
                 <td colSpan={isAdmin ? 9 : 8} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
-                  No attendance records found matching filters.
+                  {filteredRecords.length === 0 ? (
+                    'No attendance records found matching filters.'
+                  ) : currentDateForPage === todayIst ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
+                      <Clock size={24} style={{ color: 'var(--primary)', opacity: 0.8 }} />
+                      <span style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--text-main)' }}>
+                        No employee check-ins recorded yet for Today ({formatDateDDMMYYYY(todayIst)}).
+                      </span>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-subtle)' }}>
+                        Logs will appear here as employees clock in. Go to Page 2 to view Yesterday's logs.
+                      </span>
+                    </div>
+                  ) : (
+                    <span>No attendance records found for {formatDateDDMMYYYY(currentDateForPage)}.</span>
+                  )}
                 </td>
               </tr>
             )}
@@ -559,8 +602,8 @@ export default function AttendanceLogTable({ records = [], employees = [], title
         </table>
       </div>
 
-      {/* Modern Pagination Controls (Strictly 5 logs per page) */}
-      {filteredRecords.length > 0 && (
+      {/* Modern Date-Based Pagination Controls (Day-by-Day) */}
+      {(paginatedDates.length > 1 || filteredRecords.length > 0) && (
         <div style={{
           display: 'flex',
           flexWrap: 'wrap',
@@ -572,17 +615,20 @@ export default function AttendanceLogTable({ records = [], employees = [], title
           borderTop: '1px solid var(--border-color)',
           fontSize: '0.85rem'
         }}>
-          {/* Left: Record Range Summary */}
-          <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+          {/* Left: Record Range & Date Summary */}
+          <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
             <span>Showing</span>
             <strong style={{ color: 'var(--text-main)' }}>
-              {startIndex + 1} – {Math.min(endIndex, filteredRecords.length)}
+              {paginatedRecords.length} {paginatedRecords.length === 1 ? 'record' : 'records'}
             </strong>
-            <span>of</span>
-            <strong style={{ color: 'var(--text-main)' }}>{filteredRecords.length}</strong>
-            <span>records</span>
+            <span>on</span>
+            <strong style={{ color: 'var(--primary)' }}>
+              {formatDateDDMMYYYY(currentDateForPage)}
+              {currentDateForPage === todayIst ? ' (Today)' : currentDateForPage === yesterdayIst ? ' (Yesterday)' : ''}
+            </strong>
             <span style={{ margin: '0 0.25rem', opacity: 0.4 }}>•</span>
             <span>Page <strong style={{ color: 'var(--primary)' }}>{validCurrentPage}</strong> of <strong>{totalPages}</strong></span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-subtle)' }}>({filteredRecords.length} total)</span>
           </div>
 
           {/* Right: Navigation Buttons */}
@@ -592,7 +638,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
               type="button"
               onClick={() => setCurrentPage(1)}
               disabled={validCurrentPage === 1}
-              title="First Page"
+              title="First Page (Today)"
               style={{
                 padding: '0.4rem 0.55rem',
                 borderRadius: 'var(--radius-sm)',
@@ -615,7 +661,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
               type="button"
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={validCurrentPage === 1}
-              title="Previous Page"
+              title="Previous Page (Newer Date)"
               style={{
                 padding: '0.4rem 0.75rem',
                 borderRadius: 'var(--radius-sm)',
@@ -647,11 +693,18 @@ export default function AttendanceLogTable({ records = [], employees = [], title
 
               for (let i = start; i <= end; i++) {
                 const isActive = i === validCurrentPage;
+                const pageDate = paginatedDates[i - 1];
+                let btnTitle = `Page ${i}`;
+                if (pageDate === todayIst) btnTitle += ' (Today)';
+                else if (pageDate === yesterdayIst) btnTitle += ' (Yesterday)';
+                else if (pageDate) btnTitle += ` (${formatDateDDMMYYYY(pageDate)})`;
+
                 pages.push(
                   <button
                     key={i}
                     type="button"
                     onClick={() => setCurrentPage(i)}
+                    title={btnTitle}
                     style={{
                       minWidth: '34px',
                       height: '34px',
@@ -680,7 +733,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
               type="button"
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={validCurrentPage === totalPages}
-              title="Next Page"
+              title="Next Page (Older Date)"
               style={{
                 padding: '0.4rem 0.75rem',
                 borderRadius: 'var(--radius-sm)',
@@ -705,7 +758,7 @@ export default function AttendanceLogTable({ records = [], employees = [], title
               type="button"
               onClick={() => setCurrentPage(totalPages)}
               disabled={validCurrentPage === totalPages}
-              title="Last Page"
+              title="Last Page (Oldest Date)"
               style={{
                 padding: '0.4rem 0.55rem',
                 borderRadius: 'var(--radius-sm)',
